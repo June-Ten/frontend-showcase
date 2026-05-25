@@ -1,7 +1,16 @@
 <script setup lang="ts">
-import { router } from './router';
+import { onBeforeUnmount, onMounted } from 'vue'
+import { initFlexible } from './utils/flexible'
 
-// import HelloWorld from './components/HelloWorld.vue'
+let cleanupFlexible: (() => void) | undefined
+
+onMounted(() => {
+  cleanupFlexible = initFlexible()
+})
+
+onBeforeUnmount(() => {
+  cleanupFlexible?.()
+})
 </script>
 
 <template>
