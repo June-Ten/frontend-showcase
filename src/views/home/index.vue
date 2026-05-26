@@ -168,6 +168,7 @@ onBeforeUnmount(() => {
 const navItems = [
   { label: '首页', href: '/', active: true },
   { label: '项目', href: '#projects', active: false },
+  { label: '数据大屏', href: '/visualization', active: false },
   { label: '实验室', href: '#', active: false },
   { label: '设计与灵感', href: '#', active: false },
 ]
