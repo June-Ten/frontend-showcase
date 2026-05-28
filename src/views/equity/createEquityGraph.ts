@@ -1,5 +1,8 @@
 import { Graph, type Graph as G6Graph } from '@antv/g6'
 import type { EquityEdgeRelation, EquityGraphData, EquityNodeType } from './equityData'
+import { registerHoverAntPolyline, stopAllHoverAntPolylineEdges, syncAllHoverAntPolylineEdges } from './hoverAntPolylineEdge'
+
+registerHoverAntPolyline()
 
 interface EquityGraphNodeData {
   name: string
@@ -64,7 +67,9 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
   const height = container.clientHeight || 600
   const shareholderPercents = buildShareholderPercentMap(data)
 
-  const graph = new Graph({
+  let graph!: G6Graph
+
+  graph = new Graph({
     container,
     width,
     height,
@@ -116,15 +121,19 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
       },
     },
     edge: {
-      type: 'polyline',
+      type: 'hover-ant-polyline',
       style: {
         router: { type: 'orth' },
         lineWidth: 1,
+        stroke: '#99ADD1',
         endArrow: true,
       },
       state: {
         active: {
           halo: false,
+          lineWidth: 2,
+          stroke: '#1a5fb4',
+          lineDash: [6, 4],
         },
       },
     },
@@ -134,7 +143,17 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
         type: 'zoom-canvas',
         sensitivity: 0.15,
       },
-      { type: 'hover-activate', degree: 1 },
+      {
+        type: 'hover-activate',
+        degree: 1,
+        onHover: () => {
+          requestAnimationFrame(() => syncAllHoverAntPolylineEdges(graph))
+        },
+        onHoverEnd: () => {
+          stopAllHoverAntPolylineEdges(graph)
+          requestAnimationFrame(() => syncAllHoverAntPolylineEdges(graph))
+        },
+      },
     ],
   })
 
