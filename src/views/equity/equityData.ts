@@ -1,6 +1,6 @@
 export type EquityNodeType = 'person' | 'company' | 'target'
 
-/** shareholder：股东持股（被投资，在目标企业上方）；investment：对外投资（在目标企业下方） */
+/** shareholder：股东持股；investment：对外投资。边方向均为 投资方(source) → 被投资方(target)，配合 TB 自上而下排列 */
 export type EquityEdgeRelation = 'shareholder' | 'investment'
 
 export interface EquityNodeItem {
@@ -51,22 +51,22 @@ export const nodes: EquityNodeItem[] = [
 ]
 
 export const edges: EquityEdgeItem[] = [
-  // 被投资：source=目标企业，target=股东（BT 布局下股东在上）
-  { id: 'e-target-yuanjing', source: 'n-target', target: 'n-yuanjing', data: { percent: '42.5%', relation: 'shareholder' } },
-  { id: 'e-target-sequoia', source: 'n-target', target: 'n-sequoia', data: { percent: '28%', relation: 'shareholder' } },
-  { id: 'e-target-wang', source: 'n-target', target: 'n-wang', data: { percent: '18.5%', relation: 'shareholder' } },
-  { id: 'e-target-sz-fund', source: 'n-target', target: 'n-sz-fund', data: { percent: '11%', relation: 'shareholder' } },
-  { id: 'e-yuanjing-chen', source: 'n-yuanjing', target: 'n-chen', data: { percent: '55%', relation: 'shareholder' } },
-  { id: 'e-yuanjing-lin', source: 'n-yuanjing', target: 'n-lin', data: { percent: '30%', relation: 'shareholder' } },
-  { id: 'e-yuanjing-esop', source: 'n-yuanjing', target: 'n-esop', data: { percent: '15%', relation: 'shareholder' } },
-  { id: 'e-sequoia-cn', source: 'n-sequoia', target: 'n-sequoia-cn', data: { percent: '100%', relation: 'shareholder' } },
-  { id: 'e-sz-fund-sasac', source: 'n-sz-fund', target: 'n-sasac', data: { percent: '40%', relation: 'shareholder' } },
-  { id: 'e-sz-fund-szvc', source: 'n-sz-fund', target: 'n-szvc', data: { percent: '35%', relation: 'shareholder' } },
-  { id: 'e-sz-fund-lp', source: 'n-sz-fund', target: 'n-lp', data: { percent: '25%', relation: 'shareholder' } },
-  // 对外投资：source=子公司，target=目标企业（BT 布局下子公司在下）
-  { id: 'e-cloud-target', source: 'n-cloud', target: 'n-target', data: { percent: '60%', relation: 'investment' } },
-  { id: 'e-data-target', source: 'n-data', target: 'n-target', data: { percent: '35%', relation: 'investment' } },
-  { id: 'e-hardware-target', source: 'n-hardware', target: 'n-target', data: { percent: '51%', relation: 'investment' } },
+  // 股东穿透：投资方 → 被投资方（TB 布局，股东在上、目标在中）
+  { id: 'e-yuanjing-target', source: 'n-yuanjing', target: 'n-target', data: { percent: '42.5%', relation: 'shareholder' } },
+  { id: 'e-sequoia-target', source: 'n-sequoia', target: 'n-target', data: { percent: '28%', relation: 'shareholder' } },
+  { id: 'e-wang-target', source: 'n-wang', target: 'n-target', data: { percent: '18.5%', relation: 'shareholder' } },
+  { id: 'e-sz-fund-target', source: 'n-sz-fund', target: 'n-target', data: { percent: '11%', relation: 'shareholder' } },
+  { id: 'e-chen-yuanjing', source: 'n-chen', target: 'n-yuanjing', data: { percent: '55%', relation: 'shareholder' } },
+  { id: 'e-lin-yuanjing', source: 'n-lin', target: 'n-yuanjing', data: { percent: '30%', relation: 'shareholder' } },
+  { id: 'e-esop-yuanjing', source: 'n-esop', target: 'n-yuanjing', data: { percent: '15%', relation: 'shareholder' } },
+  { id: 'e-sequoia-cn-sequoia', source: 'n-sequoia-cn', target: 'n-sequoia', data: { percent: '100%', relation: 'shareholder' } },
+  { id: 'e-sasac-sz-fund', source: 'n-sasac', target: 'n-sz-fund', data: { percent: '40%', relation: 'shareholder' } },
+  { id: 'e-szvc-sz-fund', source: 'n-szvc', target: 'n-sz-fund', data: { percent: '35%', relation: 'shareholder' } },
+  { id: 'e-lp-sz-fund', source: 'n-lp', target: 'n-sz-fund', data: { percent: '25%', relation: 'shareholder' } },
+  // 对外投资：母公司 → 子公司（TB 布局，子公司在下）
+  { id: 'e-target-cloud', source: 'n-target', target: 'n-cloud', data: { percent: '60%', relation: 'investment' } },
+  { id: 'e-target-data', source: 'n-target', target: 'n-data', data: { percent: '35%', relation: 'investment' } },
+  { id: 'e-target-hardware', source: 'n-target', target: 'n-hardware', data: { percent: '51%', relation: 'investment' } },
 ]
 
 export const equityGraphData: EquityGraphData = { nodes, edges }

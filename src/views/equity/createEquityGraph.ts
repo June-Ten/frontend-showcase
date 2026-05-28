@@ -33,7 +33,7 @@ function buildShareholderPercentMap(data: EquityGraphData): Map<string, string> 
   const map = new Map<string, string>()
   for (const edge of data.edges) {
     if (edge.data?.relation === 'shareholder' && edge.data.percent) {
-      map.set(edge.target, edge.data.percent)
+      map.set(edge.source, edge.data.percent)
     }
   }
   return map
@@ -73,7 +73,7 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
     data,
     layout: {
       type: 'antv-dagre',
-      rankdir: 'BT',
+      rankdir: 'TB',
       nodesep: 36,
       ranksep: 64,
       controlPoints: true,
@@ -120,7 +120,7 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
       style: {
         router: { type: 'orth' },
         lineWidth: 1,
-        // endArrow: true,
+        endArrow: true,
       },
       state: {
         active: {
