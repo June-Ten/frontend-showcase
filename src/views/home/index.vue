@@ -82,15 +82,37 @@
           </a>
         </div>
         <div class="featured__grid">
-          <article
+          <component
+            :is="project.href ? 'RouterLink' : 'article'"
             v-for="project in projects"
             :key="project.title"
+            v-bind="project.href ? { to: project.href } : {}"
             class="project-card"
           >
             <div
               class="project-card__thumb"
-              :style="{ background: project.thumbGradient }"
-            />
+              :class="{ 'project-card__thumb--equity': project.thumbType === 'equity' }"
+              :style="project.thumbGradient ? { background: project.thumbGradient } : undefined"
+            >
+              <svg
+                v-if="project.thumbType === 'equity'"
+                class="project-card__equity-preview"
+                viewBox="0 0 240 150"
+                aria-hidden="true"
+              >
+                <line x1="120" y1="118" x2="60" y2="78" stroke="rgba(99,102,241,0.5)" stroke-width="1.5" />
+                <line x1="120" y1="118" x2="120" y2="78" stroke="rgba(99,102,241,0.5)" stroke-width="1.5" />
+                <line x1="120" y1="118" x2="180" y2="78" stroke="rgba(99,102,241,0.5)" stroke-width="1.5" />
+                <line x1="60" y1="78" x2="36" y2="38" stroke="rgba(45,212,191,0.45)" stroke-width="1.5" />
+                <line x1="60" y1="78" x2="84" y2="38" stroke="rgba(45,212,191,0.45)" stroke-width="1.5" />
+                <rect x="72" y="118" width="96" height="24" rx="6" fill="#312e81" stroke="#6366f1" stroke-width="1.2" />
+                <rect x="24" y="62" width="72" height="22" rx="5" fill="#1e293b" stroke="#475569" stroke-width="1" />
+                <rect x="96" y="62" width="48" height="22" rx="5" fill="#134e4a" stroke="#2dd4bf" stroke-width="1" />
+                <rect x="144" y="62" width="72" height="22" rx="5" fill="#1e293b" stroke="#475569" stroke-width="1" />
+                <rect x="12" y="26" width="48" height="18" rx="4" fill="#134e4a" stroke="#2dd4bf" stroke-width="1" />
+                <rect x="60" y="26" width="48" height="18" rx="4" fill="#134e4a" stroke="#2dd4bf" stroke-width="1" />
+              </svg>
+            </div>
             <h3 class="project-card__title">{{ project.title }}</h3>
             <p class="project-card__desc">{{ project.description }}</p>
             <div class="project-card__tags">
@@ -101,7 +123,7 @@
             <span class="project-card__arrow" aria-hidden="true">
               <AppIcon name="arrow-right-sm" :size="18" />
             </span>
-          </article>
+          </component>
         </div>
       </section>
     </main>
@@ -174,6 +196,13 @@ const navItems = [
 ]
 
 const projects = [
+  {
+    title: '股权穿透图',
+    description: '企业股权结构可视化，支持多层穿透与交互展开',
+    tags: ['Vue3', 'G6', 'Tree'],
+    thumbType: 'equity' as const,
+    href: '/equity',
+  },
   {
     title: '数据可视化平台',
     description: '基于 Vue3 + ECharts 的数据可视化解决方案',
@@ -495,6 +524,8 @@ $container: 1400px;
   background: $card-bg;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
+  text-decoration: none;
+  color: inherit;
   transition:
     border-color 0.2s,
     transform 0.2s;
@@ -516,6 +547,19 @@ $container: 1400px;
   aspect-ratio: 16 / 10;
   border-radius: 10px;
   margin-bottom: 16px;
+
+  &--equity {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+  }
+}
+
+.project-card__equity-preview {
+  width: 88%;
+  height: auto;
+  opacity: 0.92;
 }
 
 .project-card__title {
