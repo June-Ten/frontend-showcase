@@ -5,10 +5,6 @@
         <AppIcon name="arrow-right-sm" :size="16" class="equity-header__back-icon" />
         返回首页
       </RouterLink>
-      <div class="equity-header__title-wrap">
-        <h1 class="equity-header__title">股权穿透图</h1>
-        <p class="equity-header__subtitle">基于 AntV G6 的企业股权结构穿透可视化</p>
-      </div>
     </header>
 
     <section class="equity-info">
@@ -26,21 +22,27 @@
 
     <section class="equity-chart-panel">
       <div class="equity-chart-panel__toolbar">
+        <button type="button" class="action-btn" @click="handleReset">重置视图</button>
+      </div>
+      <div ref="chartRef" class="equity-chart" />
+      <footer class="equity-chart-panel__footer">
+        <p class="equity-chart-panel__note">
+          注：穿透范围：直接或间接持股比例 ≥ 5% 的自然人股东
+        </p>
         <div class="equity-chart-panel__legend">
           <span v-for="item in legendItems" :key="item.label" class="legend-item">
             <i
               class="legend-item__mark"
-              :class="{ 'legend-item__mark--line': item.line }"
-              :style="{ background: item.color, borderColor: item.border }"
+              :class="{ 'legend-item__mark--solid': item.solid }"
+              :style="{
+                background: item.solid ? item.color : item.bg,
+                borderColor: item.border,
+              }"
             />
             {{ item.label }}
           </span>
         </div>
-        <div class="equity-chart-panel__actions">
-          <button type="button" class="action-btn action-btn--primary" @click="handleReset">重置视图</button>
-        </div>
-      </div>
-      <div ref="chartRef" class="equity-chart" />
+      </footer>
     </section>
   </div>
 </template>
@@ -64,11 +66,8 @@ const metaItems = computed(() => [
 ])
 
 const legendItems = [
-  { label: '目标企业', color: '#312e81', border: '#6366f1' },
-  { label: '股东持股（被投资）', color: '#6366f1', border: '#6366f1', line: true },
-  { label: '对外投资', color: '#2dd4bf', border: '#2dd4bf', line: true },
-  { label: '企业股东', color: '#1e293b', border: '#475569' },
-  { label: '自然人', color: '#134e4a', border: '#2dd4bf' },
+  { label: '境外主体', color: '#7eb2dd', bg: '#f5f9fd', border: '#7eb2dd', solid: false },
+  { label: '境内主体', color: '#1a5fb4', bg: '#1a5fb4', border: '#1a5fb4', solid: true },
 ]
 
 function initChart() {
@@ -106,13 +105,12 @@ onBeforeUnmount(() => {
 </script>
 
 <style lang="scss" scoped>
-$bg: #050505;
-$card-bg: #121212;
-$text: #ffffff;
-$text-muted: #9ca3af;
-$accent: #6366f1;
-$accent-end: #a855f7;
-$gradient: linear-gradient(90deg, $accent 0%, $accent-end 100%);
+$bg: #f3f4f6;
+$card-bg: #ffffff;
+$text: #111827;
+$text-muted: #6b7280;
+$border: #e5e7eb;
+$accent: #1a5fb4;
 
 .equity-page {
   display: flex;
@@ -129,6 +127,8 @@ $gradient: linear-gradient(90deg, $accent 0%, $accent-end 100%);
     -apple-system,
     'Segoe UI',
     Roboto,
+    'PingFang SC',
+    'Microsoft YaHei',
     sans-serif;
   padding: 16px 24px 20px;
 }
@@ -142,7 +142,6 @@ $gradient: linear-gradient(90deg, $accent 0%, $accent-end 100%);
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 12px;
   font-size: 14px;
   color: $text-muted;
   text-decoration: none;
@@ -157,30 +156,13 @@ $gradient: linear-gradient(90deg, $accent 0%, $accent-end 100%);
   transform: rotate(180deg);
 }
 
-.equity-header__title {
-  margin: 0 0 4px;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  background: $gradient;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.equity-header__subtitle {
-  margin: 0;
-  font-size: 15px;
-  color: $text-muted;
-}
-
 .equity-info {
   flex-shrink: 0;
   margin: 0 0 12px;
   padding: 14px 18px;
   background: $card-bg;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  border: 1px solid $border;
+  border-radius: 8px;
 }
 
 .equity-info__main {
@@ -199,9 +181,9 @@ $gradient: linear-gradient(90deg, $accent 0%, $accent-end 100%);
 .equity-info__status {
   padding: 3px 10px;
   font-size: 12px;
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.12);
-  border: 1px solid rgba(52, 211, 153, 0.25);
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
   border-radius: 999px;
 }
 
@@ -231,91 +213,88 @@ $gradient: linear-gradient(90deg, $accent 0%, $accent-end 100%);
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding: 14px 16px 16px;
+  padding: 16px 20px 14px;
   background: $card-bg;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  border: 1px solid $border;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .equity-chart-panel__toolbar {
   display: flex;
   flex-shrink: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.equity-chart-panel__legend {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: $text-muted;
-
-  &__mark {
-    width: 12px;
-    height: 12px;
-    border-radius: 3px;
-    border: 1px solid;
-
-    &--line {
-      width: 20px;
-      height: 0;
-      border-radius: 0;
-      border-width: 0 0 2px;
-      background: transparent !important;
-    }
-  }
-}
-
-.equity-chart-panel__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.action-btn {
-  padding: 7px 14px;
-  font-size: 13px;
-  color: $text-muted;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  cursor: pointer;
-  transition:
-    color 0.2s,
-    border-color 0.2s,
-    background 0.2s;
-
-  &:hover {
-    color: $text;
-    border-color: rgba(255, 255, 255, 0.2);
-  }
-
-  &--primary {
-    color: $text;
-    background: rgba(99, 102, 241, 0.15);
-    border-color: rgba(99, 102, 241, 0.35);
-
-    &:hover {
-      background: rgba(99, 102, 241, 0.25);
-    }
-  }
+  justify-content: flex-end;
+  margin-bottom: 8px;
 }
 
 .equity-chart {
   flex: 1;
   width: 100%;
   min-height: 0;
+  background: #ffffff;
+  border-radius: 4px;
+}
+
+.equity-chart-panel__footer {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid $border;
+  flex-wrap: wrap;
+}
+
+.equity-chart-panel__note {
+  margin: 0;
+  font-size: 12px;
+  color: $text-muted;
+}
+
+.equity-chart-panel__legend {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: $text-muted;
+
+  &__mark {
+    width: 28px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid;
+    box-sizing: border-box;
+
+    &--solid {
+      border-color: transparent;
+    }
+  }
+}
+
+.action-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  color: $text-muted;
+  background: #ffffff;
+  border: 1px solid $border;
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+
+  &:hover {
+    color: $text;
+    border-color: #d1d5db;
+  }
 }
 
 @media (max-width: 960px) {
@@ -327,7 +306,7 @@ $gradient: linear-gradient(90deg, $accent 0%, $accent-end 100%);
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .equity-chart-panel__toolbar {
+  .equity-chart-panel__footer {
     flex-direction: column;
     align-items: flex-start;
   }

@@ -8,6 +8,8 @@ export interface EquityNodeItem {
   data: {
     name: string
     type?: EquityNodeType
+    /** 注册地/辖区，展示在名称下方 */
+    region?: string
   }
   [key: string]: unknown
 }
@@ -29,7 +31,7 @@ export interface EquityGraphData {
 }
 
 export const nodes: EquityNodeItem[] = [
-  { id: 'n-target', data: { name: '星链科技股份有限公司', type: 'target' } },
+  { id: 'n-target', data: { name: '星链科技股份有限公司', type: 'target', region: '中国大陆' } },
   // —— 被投资：股东穿透（上方）——
   { id: 'n-yuanjing', data: { name: '远景控股集团有限公司', type: 'company' } },
   { id: 'n-chen', data: { name: '陈建国', type: 'person' } },

@@ -4,6 +4,7 @@ import type { EquityEdgeRelation, EquityGraphData, EquityNodeType } from './equi
 interface EquityGraphNodeData {
   name: string
   type?: EquityNodeType
+  region?: string
 }
 
 interface EquityGraphEdgeData {
@@ -11,19 +12,41 @@ interface EquityGraphEdgeData {
   relation?: EquityEdgeRelation
 }
 
-const NODE_COLORS: Record<EquityNodeType, { fill: string; stroke: string }> = {
-  target: { fill: '#312e81', stroke: '#6366f1' },
-  company: { fill: '#1e293b', stroke: '#475569' },
-  person: { fill: '#134e4a', stroke: '#2dd4bf' },
+/** 参考穿透图：境外/中间主体浅蓝描边，境内目标主体实心蓝 */
+const OFFSHORE_STYLE = {
+  fill: '#f5f9fd',
+  stroke: '#7eb2dd',
+  labelFill: '#1f2937',
 }
 
-function nodeColors(type?: EquityNodeType) {
-  return NODE_COLORS[type ?? 'company']
+const TARGET_STYLE = {
+  fill: '#1a5fb4',
+  stroke: '#1a5fb4',
+  labelFill: '#ffffff',
 }
 
-function formatLabel(data: EquityGraphNodeData) {
-  if (data.type === 'target') {
-    return `${data.name}\n↑ 被投资  ↓ 对外投资`
+function nodeStyle(type?: EquityNodeType) {
+  return type === 'target' ? TARGET_STYLE : OFFSHORE_STYLE
+}
+
+function buildShareholderPercentMap(data: EquityGraphData): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const edge of data.edges) {
+    if (edge.data?.relation === 'shareholder' && edge.data.percent) {
+      map.set(edge.target, edge.data.percent)
+    }
+  }
+  return map
+}
+
+function formatLabel(data: EquityGraphNodeData, nodeId: string, percentMap: Map<string, string>) {
+  if (data.type === 'person') {
+    const percent = percentMap.get(nodeId)
+    // return percent ? `${data.name}\n${percent}` : data.name
+    return data.name
+  }
+  if (data.region) {
+    return `${data.name}\n(${data.region})`
   }
   return data.name
 }
@@ -39,36 +62,49 @@ function getNodeData(datum: { data?: Record<string, unknown> }): EquityGraphNode
 export function createEquityGraph(container: HTMLElement, data: EquityGraphData): G6Graph {
   const width = container.clientWidth || 800
   const height = container.clientHeight || 600
+  const shareholderPercents = buildShareholderPercentMap(data)
 
   const graph = new Graph({
     container,
     width,
     height,
     autoFit: 'view',
-    padding: [40, 48, 40, 48],
+    padding: [48, 56, 48, 56],
     data,
     layout: {
       type: 'antv-dagre',
       rankdir: 'BT',
-      nodesep: 32,
-      ranksep: 56,
+      nodesep: 36,
+      ranksep: 64,
       controlPoints: true,
     },
     node: {
       type: 'rect',
       style: {
-        size: (datum) => (getNodeData(datum).type === 'target' ? [200, 72] : [160, 56]),
-        radius: 8,
-        lineWidth: 1.5,
-        fill: (datum) => nodeColors(getNodeData(datum).type).fill,
-        stroke: (datum) => nodeColors(getNodeData(datum).type).stroke,
-        labelText: (datum) => formatLabel(getNodeData(datum)),
-        labelFill: '#f1f5f9',
+        size: (datum) => {
+          const type = getNodeData(datum).type
+          // if (type === 'target') return [220, 64]
+          // if (type === 'person') return [128, 52]
+          return [200, 56]
+        },
+        radius: 4,
+        lineWidth: 1,
+        fill: (datum) => nodeStyle(getNodeData(datum).type).fill,
+        stroke: (datum) => nodeStyle(getNodeData(datum).type).stroke,
+        labelText: (datum) =>
+          formatLabel(getNodeData(datum), String(datum.id), shareholderPercents),
+        labelFill: (datum) => nodeStyle(getNodeData(datum).type).labelFill,
         labelFontSize: 12,
-        labelFontWeight: 500,
+        labelFontWeight: (datum) => (getNodeData(datum).type === 'target' ? 600 : 500),
         labelLineHeight: 18,
         labelWordWrap: true,
-        labelMaxWidth: 140,
+        // 人名/地区与持股比例等为两行，默认 maxLines=1 会在第一行末尾误加省略号
+        labelMaxLines: (datum) => {
+          const data = getNodeData(datum)
+          if (data.type === 'person' || data.region) return 2
+          return 3
+        },
+        labelMaxWidth: (datum) => (getNodeData(datum).type === 'person' ? 116 : 188),
         labelPlacement: 'center',
         labelTextAlign: 'center',
         ports: [{ placement: 'top' }, { placement: 'bottom' }],
@@ -82,23 +118,9 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
     edge: {
       type: 'polyline',
       style: {
-        radius: 0,
         router: { type: 'orth' },
-        sourcePort: 'top',
-        targetPort: 'bottom',
-        stroke: (datum) =>
-          getEdgeData(datum).relation === 'investment'
-            ? 'rgba(45, 212, 191, 0.55)'
-            : 'rgba(99, 102, 241, 0.45)',
-        lineWidth: 1.5,
-        labelText: (datum) => getEdgeData(datum).percent ?? '',
-        labelFill: (datum) =>
-          getEdgeData(datum).relation === 'investment' ? '#5eead4' : '#a5b4fc',
-        labelFontSize: 11,
-        labelBackground: true,
-        labelBackgroundFill: 'rgba(18, 18, 18, 0.9)',
-        labelBackgroundRadius: 4,
-        labelPadding: [2, 6],
+        lineWidth: 1,
+        // endArrow: true,
       },
       state: {
         active: {
@@ -113,25 +135,6 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
         sensitivity: 0.15,
       },
       { type: 'hover-activate', degree: 1 },
-    ],
-    plugins: [
-      // {
-      //   type: 'tooltip',
-      //   trigger: 'pointerenter',
-      //   getContent: (_event: unknown, items: Array<{ data?: Record<string, unknown> }>) => {
-      //     const item = items[0]
-      //     if (!item) return ''
-      //     const data = item.data as EquityGraphNodeData | { percent?: string } | undefined
-      //     if (!data) return ''
-      //     if ('name' in data && data.name) {
-      //       return `<div style="padding:4px 2px;font-size:13px;color:#e2e8f0">${data.name}</div>`
-      //     }
-      //     if ('percent' in data && data.percent) {
-      //       return `<div style="padding:4px 2px;font-size:13px;color:#a5b4fc">持股 ${data.percent}</div>`
-      //     }
-      //     return ''
-      //   },
-      // },
     ],
   })
 
