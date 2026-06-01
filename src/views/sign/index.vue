@@ -8,10 +8,11 @@ import type { SealOption } from './types'
 
 const PDF_URL = '/git.pdf'
 const MOBILE_MAX_WIDTH = 768
+const mobileMediaQuery = window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH}px)`)
 
 const pdfContainerRef = ref<HTMLElement>()
 const toast = ref('')
-const isMobileViewport = ref(false)
+const isMobileViewport = ref(mobileMediaQuery.matches)
 const mobileTipDismissed = ref(false)
 
 const showMobileTip = computed(
@@ -20,7 +21,11 @@ const showMobileTip = computed(
 const canSign = computed(() => isMobileViewport.value)
 
 function updateViewportMode() {
-  isMobileViewport.value = window.innerWidth <= MOBILE_MAX_WIDTH
+  isMobileViewport.value = mobileMediaQuery.matches
+}
+
+function onViewportModeChange() {
+  updateViewportMode()
   if (isMobileViewport.value) {
     mobileTipDismissed.value = false
   }
@@ -39,11 +44,11 @@ function ensureMobileMode(action: string) {
 
 onMounted(() => {
   updateViewportMode()
-  window.addEventListener('resize', updateViewportMode)
+  mobileMediaQuery.addEventListener('change', onViewportModeChange)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', updateViewportMode)
+  mobileMediaQuery.removeEventListener('change', onViewportModeChange)
 })
 
 const {
@@ -254,24 +259,22 @@ function handleSubmit() {
       </div>
     </Transition>
 
-    <Transition name="fade">
-      <div v-if="showMobileTip" class="mobile-tip-mask">
-        <section class="mobile-tip">
-          <div class="mobile-tip__icon">📱</div>
-          <h2 class="mobile-tip__title">请使用手机模式签署</h2>
-          <p class="mobile-tip__desc">
-            签署功能面向移动端设计，请在手机打开本页面，或在浏览器中切换设备模拟后再操作。
-          </p>
-          <ul class="mobile-tip__list">
-            <li>Chrome / Edge：按 F12，点击工具栏「切换设备仿真」</li>
-            <li>建议宽度：375px 及以下</li>
-          </ul>
-          <button type="button" class="mobile-tip__btn" @click="dismissMobileTip">
-            我知道了
-          </button>
-        </section>
-      </div>
-    </Transition>
+    <div v-if="showMobileTip" class="mobile-tip-mask">
+      <section class="mobile-tip">
+        <div class="mobile-tip__icon">📱</div>
+        <h2 class="mobile-tip__title">请使用手机模式签署</h2>
+        <p class="mobile-tip__desc">
+          签署功能面向移动端设计，请在手机打开本页面，或在浏览器中切换设备模拟后再操作。
+        </p>
+        <ul class="mobile-tip__list">
+          <li>Chrome / Edge：按 F12，点击工具栏「切换设备仿真」</li>
+          <li>建议宽度：375px 及以下</li>
+        </ul>
+        <button type="button" class="mobile-tip__btn" @click="dismissMobileTip">
+          我知道了
+        </button>
+      </section>
+    </div>
 
     <Transition name="fade">
       <div v-if="toast" class="pdf-sign__toast">{{ toast }}</div>
