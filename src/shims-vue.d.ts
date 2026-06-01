@@ -14,3 +14,28 @@ declare module '*.glb?url' {
   const src: string
   export default src
 }
+
+declare module 'pdfh5' {
+  interface Pdfh5Options {
+    pdfurl?: string
+    data?: ArrayBuffer
+    workerSrc?: string
+    cMapUrl?: string
+    standardFontDataUrl?: string
+    iccUrl?: string
+    wasmUrl?: string
+    backTop?: boolean
+    scale?: number
+    zoomEnable?: boolean
+    textLayer?: boolean
+  }
+
+  class Pdfh5 {
+    constructor(container: HTMLElement, options?: Pdfh5Options)
+    totalNum: number
+    on(event: string, callback: (...args: unknown[]) => void): void
+    destroy(): void
+  }
+
+  export default Pdfh5
+}

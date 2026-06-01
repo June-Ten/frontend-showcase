@@ -91,13 +91,22 @@
           >
             <div
               class="project-card__thumb"
-              :class="{ 'project-card__thumb--equity': project.thumbType === 'equity' }"
+              :class="{
+                'project-card__thumb--equity':
+                  project.thumbType === 'equity' || project.thumbType === 'sign',
+              }"
               :style="project.thumbGradient ? { background: project.thumbGradient } : undefined"
             >
               <img
                 v-if="project.thumbType === 'equity'"
                 class="project-card__equity-cover"
                 :src="equityCoverImg"
+                alt=""
+              />
+              <img
+                v-if="project.thumbType === 'sign'"
+                class="project-card__equity-cover"
+                :src="signCoverImg"
                 alt=""
               />
             </div>
@@ -124,6 +133,7 @@ import Typed from 'typed.js'
 import AppIcon from '../../components/AppIcon.vue'
 import deskImg from '../../assets/img/desk.png'
 import equityCoverImg from '../../assets/img/equity_cover.png'
+import signCoverImg from '../../assets/img/sign_cover.png'
 
 const deskBackground = `url(${deskImg})`
 
@@ -191,6 +201,13 @@ const projects = [
     tags: ['Vue3', 'G6', 'Tree'],
     thumbType: 'equity' as const,
     href: '/equity',
+  },
+  {
+    title: 'PDF 签署',
+    description: 'PDF 预览与电子盖章，支持任意位置盖章与骑缝章',
+    tags: ['Vue3', 'pdfh5', 'TypeScript'],
+    thumbType: 'sign' as const,
+    href: '/sign',
   },
   {
     title: '数据可视化平台',

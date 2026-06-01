@@ -6,4 +6,9 @@ import svgLoader from 'vite-svg-loader'
 export default defineConfig({
   base: process.env.BASE_PATH || '/',
   plugins: [vue(), svgLoader()],
+  css: {
+    lightningcss: {
+      errorRecovery: true,
+    },
+  },
 })
