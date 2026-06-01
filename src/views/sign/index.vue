@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import DraggableSeal from './components/DraggableSeal.vue'
 import PagingSealPanel from './components/PagingSealPanel.vue'
 import { usePdfViewer } from './composables/usePdfViewer'
-import { SEAL_OPTIONS, useStamp } from './composables/useStamp'
+import { isSealWithinSinglePage, SEAL_OPTIONS, useStamp } from './composables/useStamp'
 import type { SealOption } from './types'
 
 const PDF_URL = '/git.pdf'
@@ -118,14 +118,14 @@ function handlePickSeal(option: SealOption) {
     showToast('未找到 PDF 预览区域')
     return
   }
-  addSeal(option, container, metrics)
+  addSeal(option, container, metrics, totalPages.value)
 }
 
 function handleDragEnd(sealId: string) {
   const seal = seals.value.find((item) => item.id === sealId)
   const container = getViewerContainer()
   if (!seal || !container) return
-  clampSealPosition(seal, getPageMetrics(), container)
+  clampSealPosition(seal, getPageMetrics(), container, totalPages.value)
 }
 
 function handlePagingDragEnd() {
@@ -141,7 +141,14 @@ function handleSubmit() {
     return
   }
 
-  const result = buildSubmitResult(getPageMetrics(), totalPages.value)
+  const metrics = getPageMetrics()
+  const stamp = seals.value[0]
+  if (stamp && metrics && !isSealWithinSinglePage(stamp, metrics, totalPages.value)) {
+    showToast('印章不能跨页，请调整位置')
+    return
+  }
+
+  const result = buildSubmitResult(metrics, totalPages.value)
   console.log('签署结果', result)
 
   const parts: string[] = []

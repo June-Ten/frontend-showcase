@@ -55,6 +55,49 @@ function getCenterPosition(
   }
 }
 
+function getRowHeight(metrics: PageMetrics) {
+  return metrics.pageHeight + metrics.pageGap
+}
+
+function getPageVerticalBounds(pageIndex: number, metrics: PageMetrics) {
+  const top = metrics.viewerPaddingTop + pageIndex * getRowHeight(metrics)
+  return { top, bottom: top + metrics.pageHeight }
+}
+
+function resolveTargetPageIndex(
+  seal: PlacedSeal,
+  metrics: PageMetrics,
+  totalPages: number,
+): number {
+  const rowHeight = getRowHeight(metrics)
+  const centerY = seal.y + seal.height / 2
+  let pageIndex = Math.floor((centerY - metrics.viewerPaddingTop) / rowHeight)
+  pageIndex = Math.max(0, Math.min(pageIndex, totalPages - 1))
+
+  const { top, bottom } = getPageVerticalBounds(pageIndex, metrics)
+  if (centerY > bottom && pageIndex < totalPages - 1) {
+    return pageIndex + 1
+  }
+  if (centerY < top && pageIndex > 0) {
+    return pageIndex - 1
+  }
+  return pageIndex
+}
+
+export function isSealWithinSinglePage(
+  seal: PlacedSeal,
+  metrics: PageMetrics,
+  totalPages: number,
+): boolean {
+  for (let i = 0; i < totalPages; i++) {
+    const { top, bottom } = getPageVerticalBounds(i, metrics)
+    if (seal.y >= top && seal.y + seal.height <= bottom) {
+      return true
+    }
+  }
+  return false
+}
+
 export function useStamp() {
   const seals = ref<PlacedSeal[]>([])
   const pagingSeal = ref<PlacedPagingSeal | null>(null)
@@ -87,6 +130,7 @@ export function useStamp() {
     option: SealOption,
     container: HTMLElement,
     metrics: PageMetrics | null,
+    totalPages: number,
   ) {
     const { width, height } = getSealSize(option, metrics)
     const { x, y } = getCenterPosition(container, width, height)
@@ -103,6 +147,12 @@ export function useStamp() {
       },
     ]
     activeSealId.value = seals.value[0]?.id ?? null
+
+    const seal = seals.value[0]
+    if (seal && metrics && totalPages > 0) {
+      clampSealPosition(seal, metrics, container, totalPages)
+    }
+
     closePicker()
   }
 
@@ -137,8 +187,9 @@ export function useStamp() {
     seal: PlacedSeal,
     metrics: PageMetrics | null,
     container: HTMLElement,
+    totalPages: number,
   ) {
-    if (!metrics) return
+    if (!metrics || totalPages < 1) return
 
     const minX = metrics.viewerPaddingLeft
     const minY = metrics.viewerPaddingTop
@@ -147,6 +198,11 @@ export function useStamp() {
 
     seal.x = Math.min(Math.max(seal.x, minX), Math.max(minX, maxX))
     seal.y = Math.min(Math.max(seal.y, minY), Math.max(minY, maxY))
+
+    const pageIndex = resolveTargetPageIndex(seal, metrics, totalPages)
+    const { top, bottom } = getPageVerticalBounds(pageIndex, metrics)
+    const pageMaxY = Math.max(top, bottom - seal.height)
+    seal.y = Math.min(Math.max(seal.y, top), pageMaxY)
   }
 
   function clampPagingSealPosition(seal: PlacedPagingSeal, panelHeight: number) {
