@@ -1,5 +1,5 @@
 import { Graph, type Graph as G6Graph } from '@antv/g6'
-import type { EquityEdgeRelation, EquityGraphData, EquityNodeType } from './equityData'
+import type { EquityGraphData, EquityNodeType } from './equityData'
 import { registerHoverAntPolyline, stopAllHoverAntPolylineEdges, syncAllHoverAntPolylineEdges } from './hoverAntPolylineEdge'
 
 registerHoverAntPolyline()
@@ -8,11 +8,6 @@ interface EquityGraphNodeData {
   name: string
   type?: EquityNodeType
   region?: string
-}
-
-interface EquityGraphEdgeData {
-  percent?: string
-  relation?: EquityEdgeRelation
 }
 
 /** 参考穿透图：境外/中间主体浅蓝描边，境内目标主体实心蓝 */
@@ -42,9 +37,8 @@ function buildShareholderPercentMap(data: EquityGraphData): Map<string, string> 
   return map
 }
 
-function formatLabel(data: EquityGraphNodeData, nodeId: string, percentMap: Map<string, string>) {
+function formatLabel(data: EquityGraphNodeData, _nodeId: string, _percentMap: Map<string, string>) {
   if (data.type === 'person') {
-    const percent = percentMap.get(nodeId)
     // return percent ? `${data.name}\n${percent}` : data.name
     return data.name
   }
@@ -52,10 +46,6 @@ function formatLabel(data: EquityGraphNodeData, nodeId: string, percentMap: Map<
     return `${data.name}\n(${data.region})`
   }
   return data.name
-}
-
-function getEdgeData(datum: { data?: Record<string, unknown> }): EquityGraphEdgeData {
-  return (datum.data ?? {}) as EquityGraphEdgeData
 }
 
 function getNodeData(datum: { data?: Record<string, unknown> }): EquityGraphNodeData {
@@ -86,10 +76,7 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
     node: {
       type: 'rect',
       style: {
-        size: (datum) => {
-          const type = getNodeData(datum).type
-          // if (type === 'target') return [220, 64]
-          // if (type === 'person') return [128, 52]
+        size: () => {
           return [200, 56]
         },
         radius: 4,
