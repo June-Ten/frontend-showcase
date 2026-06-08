@@ -140,7 +140,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Typed from 'typed.js'
 import AppIcon from '../../components/AppIcon.vue'
 import deskImg from '../../assets/img/desk.png'
-import bigScreenCoverImg from '../../assets/img/big_screen_cover.png'
+import bigScreenCoverImg from '../../assets/img/bigscreen/big_screen_cover.png'
 import equityCoverImg from '../../assets/img/equity_cover.png'
 import signCoverImg from '../../assets/img/sign_cover.png'
 
@@ -219,8 +219,8 @@ const projects = [
     href: '/sign',
   },
   {
-    title: '数据可视化大屏',
-    description: '智慧城市风格决策分析大屏，数据驱动·智慧未来',
+    title: '全国综合态势感知大屏',
+    description: '全国综合态势感知决策分析大屏，数据驱动·智慧未来',
     tags: ['Vue3', 'ECharts', 'Three.js'],
     thumbType: 'viz' as const,
     href: '/visualization',

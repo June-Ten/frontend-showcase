@@ -1,76 +1,63 @@
 <template>
-  <main class="viz-screen">
-    <canvas ref="threeCanvasRef" class="viz-screen__stars" aria-hidden="true" />
-    <div class="viz-screen__glow viz-screen__glow--left" aria-hidden="true" />
-    <div class="viz-screen__glow viz-screen__glow--right" aria-hidden="true" />
-
+  <main class="viz-screen" :style="{ '--bg-image': `url(${backgroundImg})` }">
     <header class="viz-header">
-      <div class="viz-header__meta">
-        <span class="viz-header__cube" aria-hidden="true" />
-        <span>2026-05-26</span>
-        <span>16:40:25</span>
-        <span>星期二</span>
-      </div>
       <div class="viz-header__title-wrap">
         <span class="viz-header__wing viz-header__wing--left" aria-hidden="true" />
-        <h1 class="viz-header__title">数据可视化大屏</h1>
+        <h1 class="viz-header__title">全国综合态势感知大屏</h1>
         <span class="viz-header__wing viz-header__wing--right" aria-hidden="true" />
-      </div>
-      <div class="viz-header__weather">
-        <span class="viz-header__weather-icon">☁</span>
-        <span>多云 22℃</span>
       </div>
     </header>
 
     <section class="viz-layout">
       <aside class="viz-column viz-column--left">
-        <PanelCard title="核心指标" class="panel--metrics">
+        <PanelCard title="核心指标概览" class="panel--metrics">
           <div class="metric-grid">
-            <div v-for="metric in metrics" :key="metric.label" class="metric-card">
+            <div v-for="metric in coreMetrics" :key="metric.label" class="metric-card">
               <span class="metric-card__icon" :style="{ color: metric.color }">{{ metric.icon }}</span>
-              <div>
+              <div class="metric-card__body">
                 <p class="metric-card__label">{{ metric.label }}</p>
                 <strong>{{ metric.value }}</strong>
-                <span class="metric-card__delta">较昨日 ↑ {{ metric.delta }}</span>
+                <span class="metric-card__delta">同比 ↑ {{ metric.yoy }}</span>
               </div>
             </div>
           </div>
         </PanelCard>
 
-        <PanelCard title="趋势分析" class="panel--trend">
+        <PanelCard title="经济运行趋势" class="panel--trend">
+          <div class="tab-bar">
+            <button
+              v-for="tab in trendTabs"
+              :key="tab.key"
+              type="button"
+              class="tab-bar__item"
+              :class="{ 'tab-bar__item--active': activeTrendTab === tab.key }"
+              @click="switchTrendTab(tab.key)"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
           <div ref="trendChartRef" class="chart chart--trend" />
         </PanelCard>
 
-        <PanelCard title="业务指标概览" class="panel--business">
-          <div class="business-list">
-            <div v-for="item in businessMetrics" :key="item.label" class="business-item">
-              <span class="business-item__icon" :style="{ color: item.color }">{{ item.icon }}</span>
-              <div class="business-item__content">
-                <p>{{ item.label }}</p>
-                <strong :style="{ color: item.color }">{{ item.value }}</strong>
-                <span>较昨日 ↑ {{ item.delta }}</span>
-              </div>
-              <div :ref="(el) => setSparklineRef(el, item.label)" class="sparkline" />
-            </div>
-          </div>
+        <PanelCard title="产业结构分析" class="panel--industry">
+          <div ref="industryChartRef" class="chart chart--industry" />
         </PanelCard>
       </aside>
 
       <section class="viz-center">
-        <PanelCard title="全国业务分布概览" class="panel--overview">
-          <div class="overview-stats">
-            <div v-for="item in overviewStats" :key="item.label" class="overview-stat">
-              <span class="overview-stat__icon">{{ item.icon }}</span>
-              <div>
-                <strong>{{ item.value }}</strong>
-                <p>{{ item.label }}</p>
-              </div>
+        <div class="center-stats">
+          <div v-for="item in adminStats" :key="item.label" class="center-stat">
+            <span class="center-stat__icon">{{ item.icon }}</span>
+            <div>
+              <strong>{{ item.value }}<small>{{ item.unit }}</small></strong>
+              <p>{{ item.label }}</p>
             </div>
           </div>
-        </PanelCard>
+        </div>
 
         <div class="map-shell">
-          <canvas ref="threeMapCanvasRef" class="three-map" aria-label="three.js 中国业务分布地图" />
+          <div class="map-shell__title">中国地图三维态势</div>
+          <canvas ref="threeMapCanvasRef" class="three-map" aria-label="中国地图三维态势" />
           <div class="map-shell__halo" aria-hidden="true" />
           <div class="map-inset">
             <div class="map-inset__dots" aria-hidden="true">
@@ -84,39 +71,65 @@
           </div>
         </div>
 
-        <div class="legend">
-          <span>图例（交易额 / 万元）</span>
-          <span v-for="item in legendItems" :key="item.label">
-            <i :style="{ background: item.color }" />
-            {{ item.label }}
-          </span>
+        <div class="category-nav">
+          <button
+            v-for="cat in mapCategories"
+            :key="cat.key"
+            type="button"
+            class="category-nav__item"
+            :class="{ 'category-nav__item--active': activeMapCategory === cat.key }"
+            @click="activeMapCategory = cat.key"
+          >
+            <span class="category-nav__icon">{{ cat.icon }}</span>
+            <span>{{ cat.label }}</span>
+          </button>
         </div>
       </section>
 
       <aside class="viz-column viz-column--right">
-        <PanelCard title="区域交易额 TOP5" subtitle="单位：万元" class="panel--ranking">
+        <PanelCard title="区域发展对比" class="panel--ranking">
+          <div class="tab-bar tab-bar--compact">
+            <button
+              v-for="tab in rankTabs"
+              :key="tab.key"
+              type="button"
+              class="tab-bar__item"
+              :class="{ 'tab-bar__item--active': activeRankTab === tab.key }"
+              @click="switchRankTab(tab.key)"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
           <div ref="rankChartRef" class="chart chart--rank" />
         </PanelCard>
 
-        <PanelCard title="渠道分布" class="panel--channels">
-          <div class="channel-total">
-            <span>交易总额（万元）</span>
-            <strong>125,811.23</strong>
+        <PanelCard title="民生保障" class="panel--livelihood">
+          <div class="livelihood-grid">
+            <div v-for="item in livelihoodMetrics" :key="item.label" class="livelihood-card">
+              <div class="livelihood-card__ring" :style="{ '--progress': item.progress }">
+                <span class="livelihood-card__icon">{{ item.icon }}</span>
+              </div>
+              <p class="livelihood-card__label">{{ item.label }}</p>
+              <strong>{{ item.value }}</strong>
+              <span class="livelihood-card__delta">同比 ↑ {{ item.yoy }}</span>
+            </div>
           </div>
-          <div ref="channelChartRef" class="chart chart--channels" />
         </PanelCard>
 
-        <PanelCard title="实时监控" class="panel--monitor">
-          <div class="monitor-table">
-            <div class="monitor-table__head">
-              <span>监控指标</span>
-              <span>当前值</span>
-              <span>状态</span>
-            </div>
-            <div v-for="item in monitorRows" :key="item.label" class="monitor-row">
-              <span>{{ item.label }}</span>
-              <strong>{{ item.value }}</strong>
-              <i />
+        <PanelCard title="预警提示" show-more class="panel--alerts">
+          <div class="alert-list">
+            <div
+              v-for="alert in alerts"
+              :key="alert.id"
+              class="alert-item"
+              :class="`alert-item--${alert.level}`"
+            >
+              <span class="alert-item__icon">▲</span>
+              <div class="alert-item__body">
+                <strong>{{ alert.title }}</strong>
+                <span>{{ alert.region }}</span>
+              </div>
+              <time>{{ alert.time }}</time>
             </div>
           </div>
         </PanelCard>
@@ -130,28 +143,30 @@ import { defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'v
 import * as echarts from 'echarts'
 import * as THREE from 'three'
 import chinaMap from '../../assets/map/100000_full.json'
-import { cityLines, cityPoints, mapData } from './echartsChinaMap'
+import backgroundImg from '../../assets/img/bigscreen/background.png'
+import { mapData } from './echartsChinaMap'
 
 type ChartElement = HTMLElement | null
+type TrendTabKey = 'gdp' | 'industry' | 'investment' | 'retail'
+type RankTabKey = 'gdp' | 'growth'
 
 const PanelCard = defineComponent({
   name: 'PanelCard',
   props: {
-    title: {
-      type: String,
-      required: true,
-    },
-    subtitle: {
-      type: String,
-      default: '',
-    },
+    title: { type: String, required: true },
+    subtitle: { type: String, default: '' },
+    showMore: { type: Boolean, default: false },
   },
   setup(props, { slots }) {
     return () =>
       h('section', { class: 'panel-card' }, [
         h('div', { class: 'panel-card__header' }, [
           h('h2', props.title),
-          props.subtitle ? h('span', props.subtitle) : null,
+          props.showMore
+            ? h('button', { type: 'button', class: 'panel-card__more' }, '更多 >')
+            : props.subtitle
+              ? h('span', props.subtitle)
+              : null,
         ]),
         h('div', { class: 'panel-card__body' }, slots.default?.()),
       ])
@@ -172,33 +187,22 @@ type ChinaFeature = {
     coordinates: PolygonCoordinates | MultiPolygonCoordinates
   }
 }
-type ChinaGeoJson = {
-  features: ChinaFeature[]
-}
-type FlyLineObject = {
-  mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>
-  curve: THREE.QuadraticBezierCurve3
-  speed: number
-  offset: number
-}
+type ChinaGeoJson = { features: ChinaFeature[] }
 
-const threeCanvasRef = ref<HTMLCanvasElement | null>(null)
 const threeMapCanvasRef = ref<HTMLCanvasElement | null>(null)
 const trendChartRef = ref<ChartElement>(null)
 const rankChartRef = ref<ChartElement>(null)
-const channelChartRef = ref<ChartElement>(null)
-const sparklineRefs = new Map<string, HTMLElement>()
+const industryChartRef = ref<ChartElement>(null)
 
-let renderer: THREE.WebGLRenderer | null = null
-let scene: THREE.Scene | null = null
-let camera: THREE.PerspectiveCamera | null = null
-let particles: THREE.Points | null = null
+const activeTrendTab = ref<TrendTabKey>('gdp')
+const activeRankTab = ref<RankTabKey>('gdp')
+const activeMapCategory = ref('population')
+
 let mapRenderer: THREE.WebGLRenderer | null = null
 let mapScene: THREE.Scene | null = null
 let mapCamera: THREE.PerspectiveCamera | null = null
 let chinaMapGroup: THREE.Group | null = null
-const mapFlyLineObjects: FlyLineObject[] = []
-const stationPulseMeshes: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>[] = []
+const barMeshes: THREE.Mesh[] = []
 let animationFrame = 0
 const chartInstances: echarts.ECharts[] = []
 const chinaGeoJson = chinaMap as unknown as ChinaGeoJson
@@ -206,42 +210,88 @@ const mapDataByName = new Map(mapData.map((item) => [item.name, item.value]))
 const mapCenter: Coordinate = [104.2, 36.2]
 const mapScale = 8.2
 
-const metrics = [
-  { label: '总用户数', value: '8,745,229', delta: '12.45%', icon: '👥', color: '#28c5ff' },
-  { label: '活跃用户数', value: '2,345,872', delta: '8.21%', icon: '♟', color: '#36e68f' },
-  { label: '交易总额（元）', value: '125,811,231', delta: '15.78%', icon: '￥', color: '#a978ff' },
-  { label: '订单总数', value: '98,234', delta: '10.31%', icon: '🛒', color: '#ff9d26' },
+const coreMetrics = [
+  { label: '常住人口(万人)', value: '140,967', yoy: '0.8%', icon: '👥', color: '#28c5ff' },
+  { label: 'GDP(亿元)', value: '1,260,582', yoy: '5.2%', icon: '◈', color: '#36e68f' },
+  { label: '工业增加值(亿元)', value: '312,890', yoy: '4.6%', icon: '⚙', color: '#a978ff' },
+  { label: '社会消费品零售总额(亿元)', value: '478,306', yoy: '8.1%', icon: '🛒', color: '#ff9d26' },
+  { label: '固定资产投资(亿元)', value: '512,305', yoy: '3.4%', icon: '🏗', color: '#ffd33c' },
+  { label: '一般公共预算收入(亿元)', value: '116,254', yoy: '6.8%', icon: '💰', color: '#5b8cff' },
 ]
 
-const businessMetrics = [
-  { label: '用户增长率', value: '12.45%', delta: '2.34%', icon: '●', color: '#31c5ff', data: [22, 28, 24, 38, 30, 44, 36, 58, 42] },
-  { label: '订单增长率', value: '10.31%', delta: '1.87%', icon: '■', color: '#43e58f', data: [18, 26, 22, 30, 25, 36, 29, 44, 35] },
-  { label: '交易额增长率', value: '15.76%', delta: '3.45%', icon: '◆', color: '#ff9b2e', data: [20, 30, 26, 42, 32, 52, 40, 62, 48] },
-  { label: '客单价增长率', value: '6.35%', delta: '1.23%', icon: '▲', color: '#925cff', data: [16, 20, 18, 28, 22, 35, 27, 42, 31] },
+const trendTabs = [
+  { key: 'gdp' as const, label: 'GDP' },
+  { key: 'industry' as const, label: '工业增加值' },
+  { key: 'investment' as const, label: '固定资产投资' },
+  { key: 'retail' as const, label: '社会消费品零售总额' },
 ]
 
-const overviewStats = [
-  { label: '省级行政区', value: '34', icon: '♟' },
-  { label: '地级市', value: '333', icon: '▣' },
-  { label: '区县', value: '2,852', icon: '▲' },
-  { label: '监测站点', value: '9,835', icon: '◆' },
-  { label: '在线设备', value: '7,128', icon: '●' },
+const trendData: Record<TrendTabKey, { months: string[]; values: number[]; unit: string }> = {
+  gdp: {
+    months: ['2023-05', '2023-07', '2023-09', '2023-11', '2024-01', '2024-03', '2024-05'],
+    values: [108420, 112680, 116350, 119870, 121560, 124210, 126058],
+    unit: '亿元',
+  },
+  industry: {
+    months: ['2023-05', '2023-07', '2023-09', '2023-11', '2024-01', '2024-03', '2024-05'],
+    values: [26840, 27680, 28420, 29150, 29860, 30540, 312890],
+    unit: '亿元',
+  },
+  investment: {
+    months: ['2023-05', '2023-07', '2023-09', '2023-11', '2024-01', '2024-03', '2024-05'],
+    values: [43820, 45260, 46890, 48120, 49380, 50460, 512305],
+    unit: '亿元',
+  },
+  retail: {
+    months: ['2023-05', '2023-07', '2023-09', '2023-11', '2024-01', '2024-03', '2024-05'],
+    values: [41280, 42860, 44120, 45680, 46240, 47120, 478306],
+    unit: '亿元',
+  },
+}
+
+const adminStats = [
+  { label: '省级行政区', value: '34', unit: '个', icon: '♟' },
+  { label: '地级行政区', value: '333', unit: '个', icon: '▣' },
+  { label: '区县行政区', value: '2,852', unit: '个', icon: '▲' },
+  { label: '乡镇街道', value: '41,293', unit: '个', icon: '◆' },
 ]
 
-const legendItems = [
-  { label: '> 10,000', color: '#ff3d62' },
-  { label: '5,000 - 10,000', color: '#ff9c26' },
-  { label: '1,000 - 5,000', color: '#ffd33c' },
-  { label: '500 - 1,000', color: '#00cdfb' },
-  { label: '< 500', color: '#2576ff' },
+const mapCategories = [
+  { key: 'population', label: '人口分布', icon: '👥' },
+  { key: 'economy', label: '经济总量', icon: '◈' },
+  { key: 'industry', label: '产业分布', icon: '⚙' },
+  { key: 'transport', label: '交通网络', icon: '🚄' },
+  { key: 'environment', label: '生态环境', icon: '🌿' },
+  { key: 'education', label: '科教资源', icon: '📚' },
 ]
 
-const monitorRows = [
-  { label: '接口响应时间', value: '120ms' },
-  { label: '数据同步延迟', value: '1.32s' },
-  { label: 'CPU使用率', value: '32%' },
-  { label: '内存使用率', value: '68%' },
-  { label: '磁盘使用率', value: '45%' },
+const rankTabs = [
+  { key: 'gdp' as const, label: 'GDP(亿元)' },
+  { key: 'growth' as const, label: '增速(%)' },
+]
+
+const regionRankData = [
+  { name: '广东省', gdp: 126058, growth: 5.8 },
+  { name: '江苏省', gdp: 122875, growth: 5.5 },
+  { name: '山东省', gdp: 90210, growth: 5.2 },
+  { name: '浙江省', gdp: 82530, growth: 5.0 },
+  { name: '河南省', gdp: 59126, growth: 4.8 },
+  { name: '四川省', gdp: 56749, growth: 5.1 },
+  { name: '湖北省', gdp: 55803, growth: 5.3 },
+]
+
+const livelihoodMetrics = [
+  { label: '城镇就业(万人)', value: '7,512', yoy: '2.1%', icon: '💼', progress: 0.72 },
+  { label: '居民收入(元)', value: '31,890', yoy: '5.8%', icon: '💵', progress: 0.68 },
+  { label: '养老保险(万人)', value: '109,873', yoy: '3.2%', icon: '🏥', progress: 0.85 },
+  { label: '医疗保险(万人)', value: '135,892', yoy: '2.8%', icon: '❤', progress: 0.91 },
+]
+
+const alerts = [
+  { id: 1, level: 'red', title: '森林火险预警', region: '内蒙古', time: '2分钟前' },
+  { id: 2, level: 'orange', title: '暴雨预警', region: '广东', time: '15分钟前' },
+  { id: 3, level: 'yellow', title: '高温预警', region: '四川', time: '32分钟前' },
+  { id: 4, level: 'blue', title: '大风预警', region: '渤海', time: '1小时前' },
 ]
 
 const insetDots = [
@@ -258,12 +308,6 @@ const insetDots = [
   { left: '78%', top: '68%' },
 ]
 
-const setSparklineRef = (el: unknown, key: string) => {
-  if (el instanceof HTMLElement) {
-    sparklineRefs.set(key, el)
-  }
-}
-
 const createChart = (el: ChartElement) => {
   if (!el) return null
   const chart = echarts.init(el)
@@ -271,138 +315,207 @@ const createChart = (el: ChartElement) => {
   return chart
 }
 
-const initCharts = () => {
-  createChart(trendChartRef.value)?.setOption({
-    color: ['#28c5ff', '#36e68f', '#ff9d26'],
-    grid: { top: 34, right: 16, bottom: 24, left: 34 },
-    tooltip: { trigger: 'axis', backgroundColor: 'rgba(3, 14, 36, 0.92)', borderColor: '#1b6dff', textStyle: { color: '#d9ecff' } },
-    legend: {
-      top: 0,
-      left: 20,
-      itemWidth: 8,
-      itemHeight: 8,
-      textStyle: { color: '#a9c7f5', fontSize: 11 },
-      data: ['用户数', '订单数', '交易额（万元）'],
+const getTrendOption = (key: TrendTabKey): echarts.EChartsOption => {
+  const data = trendData[key]
+  return {
+    grid: { top: 12, right: 16, bottom: 24, left: 48 },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(3, 14, 36, 0.92)',
+      borderColor: '#1b6dff',
+      textStyle: { color: '#d9ecff' },
+      formatter: (params: unknown) => {
+        const items = params as { axisValue: string; value: number }[]
+        const point = items[0]
+        if (!point) return ''
+        return `${point.axisValue}<br/>${point.value.toLocaleString()} ${data.unit}`
+      },
     },
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: ['05-14', '05-15', '05-16', '05-17', '05-18', '05-19', '05-20'],
+      data: data.months,
       axisLine: { lineStyle: { color: '#1c4a7a' } },
       axisLabel: { color: '#779bc8', fontSize: 10 },
       axisTick: { show: false },
     },
     yAxis: {
       type: 'value',
-      axisLabel: { color: '#779bc8', fontSize: 10, formatter: '{value}k' },
+      axisLabel: {
+        color: '#779bc8',
+        fontSize: 10,
+        formatter: (value: number) => (value >= 10000 ? `${Math.round(value / 1000)}k` : String(value)),
+      },
       splitLine: { lineStyle: { color: 'rgba(59, 130, 246, 0.12)' } },
     },
     series: [
-      { name: '用户数', type: 'line', smooth: true, symbolSize: 5, data: [24, 35, 30, 40, 36, 48, 47] },
-      { name: '订单数', type: 'line', smooth: true, symbolSize: 5, data: [18, 26, 22, 29, 27, 34, 37] },
-      { name: '交易额（万元）', type: 'line', smooth: true, symbolSize: 5, data: [12, 20, 16, 21, 17, 24, 28] },
+      {
+        type: 'line',
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        data: data.values,
+        lineStyle: { color: '#28c5ff', width: 2, shadowColor: '#28c5ff', shadowBlur: 8 },
+        itemStyle: { color: '#28c5ff', borderColor: '#fff', borderWidth: 1 },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(40, 197, 255, 0.45)' },
+            { offset: 1, color: 'rgba(40, 197, 255, 0.02)' },
+          ]),
+        },
+      },
     ],
-  })
+  }
+}
 
-  createChart(rankChartRef.value)?.setOption({
-    grid: { top: 6, right: 34, bottom: 26, left: 58 },
+const getRankOption = (key: RankTabKey): echarts.EChartsOption => {
+  const isGdp = key === 'gdp'
+  const values = regionRankData.map((item) => (isGdp ? item.gdp : item.growth))
+  const max = Math.max(...values) * 1.08
+
+  return {
+    grid: { top: 4, right: 72, bottom: 8, left: 58 },
     xAxis: {
       type: 'value',
-      max: 15000,
-      axisLabel: { color: '#6689b5', fontSize: 10 },
-      splitLine: { lineStyle: { color: 'rgba(59, 130, 246, 0.12)' } },
+      max,
+      show: false,
     },
     yAxis: {
       type: 'category',
       inverse: true,
-      data: ['广东省', '江苏省', '浙江省', '山东省', '河南省'],
-      axisLabel: { color: '#d5eaff', fontSize: 12 },
+      data: regionRankData.map((item) => item.name),
+      axisLabel: { color: '#d5eaff', fontSize: 11 },
       axisLine: { show: false },
       axisTick: { show: false },
     },
     series: [
       {
         type: 'bar',
-        barWidth: 8,
-        data: [
-          { value: 12985.21, itemStyle: { color: '#ff4778' } },
-          { value: 10245.67, itemStyle: { color: '#ff7f31' } },
-          { value: 8765.43, itemStyle: { color: '#ffd33c' } },
-          { value: 7654.32, itemStyle: { color: '#36e68f' } },
-          { value: 6543.21, itemStyle: { color: '#3489ff' } },
-        ],
+        barWidth: 10,
+        data: regionRankData.map((item, index) => ({
+          value: isGdp ? item.gdp : item.growth,
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+              { offset: 0, color: '#0a4a9e' },
+              { offset: 1, color: index < 3 ? '#28c5ff' : '#1a7fd4' },
+            ]),
+            borderRadius: [0, 4, 4, 0],
+          },
+        })),
         label: {
           show: true,
           position: 'right',
           color: '#b9d9ff',
           fontSize: 10,
-          formatter: ({ value }: { value: number }) => value.toLocaleString(),
+          formatter: (params: echarts.DefaultLabelFormatterCallbackParams) => {
+            const dataIndex = params.dataIndex ?? 0
+            const value = typeof params.value === 'number' ? params.value : 0
+            const item = regionRankData[dataIndex]
+            if (!item) return ''
+            return isGdp
+              ? `${value.toLocaleString()}  +${item.growth}%`
+              : `${value}%  ${item.gdp.toLocaleString()}`
+          },
         },
       },
     ],
-  })
+  }
+}
 
-  createChart(channelChartRef.value)?.setOption({
-    color: ['#2aa7ff', '#31d2b1', '#ff9d26', '#7659ff', '#286dff'],
-    grid: { top: 4, right: 16, bottom: 2, left: 54 },
-    xAxis: { type: 'value', show: false, max: 45 },
-    yAxis: {
-      type: 'category',
-      inverse: true,
-      data: ['APP', '小程序', 'PC端', 'H5', '其他'],
-      axisLabel: { color: '#c5dcff', fontSize: 12 },
-      axisLine: { show: false },
-      axisTick: { show: false },
+const initIndustryChart = () => {
+  createChart(industryChartRef.value)?.setOption({
+    color: ['#28c5ff', '#1a7fd4', '#0a4a9e'],
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(3, 14, 36, 0.92)',
+      borderColor: '#1b6dff',
+      textStyle: { color: '#d9ecff' },
+      formatter: '{b}<br/>{c} 亿元 ({d}%)',
+    },
+    legend: {
+      orient: 'vertical',
+      right: 8,
+      top: 'center',
+      itemWidth: 8,
+      itemHeight: 8,
+      textStyle: { color: '#a9c7f5', fontSize: 11 },
+      formatter: (name: string) => {
+        const map: Record<string, string> = {
+          第一产业: '第一产业  7.1%  89,463 亿元',
+          第二产业: '第二产业  37.3%  470,072 亿元',
+          第三产业: '第三产业  55.6%  701,047 亿元',
+        }
+        return map[name] ?? name
+      },
     },
     series: [
       {
-        type: 'bar',
-        barWidth: 8,
-        data: [42.35, 24.18, 18.76, 8.23, 6.48],
-        itemStyle: {
-          borderRadius: 6,
-          color: (params: { dataIndex: number }) => ['#2aa7ff', '#31d2b1', '#ff9d26', '#7659ff', '#286dff'][params.dataIndex],
+        type: 'pie',
+        radius: ['52%', '72%'],
+        center: ['36%', '50%'],
+        avoidLabelOverlap: false,
+        label: { show: false },
+        labelLine: { show: false },
+        data: [
+          { name: '第一产业', value: 89463 },
+          { name: '第二产业', value: 470072 },
+          { name: '第三产业', value: 701047 },
+        ],
+      },
+    ],
+    graphic: [
+      {
+        type: 'text',
+        left: '28%',
+        top: '42%',
+        style: {
+          text: '1,260,582',
+          fill: '#f2fbff',
+          fontSize: 18,
+          fontWeight: 700,
+          textAlign: 'center',
         },
-        label: { show: true, position: 'right', color: '#a9c7f5', formatter: '{c}%' },
+      },
+      {
+        type: 'text',
+        left: '30%',
+        top: '54%',
+        style: {
+          text: '亿元',
+          fill: '#80a8d8',
+          fontSize: 11,
+          textAlign: 'center',
+        },
       },
     ],
   })
+}
 
-  businessMetrics.forEach((item) => {
-    createChart(sparklineRefs.get(item.label) ?? null)?.setOption({
-      grid: { top: 6, right: 4, bottom: 6, left: 4 },
-      xAxis: { type: 'category', show: false, data: item.data.map((_, index) => index) },
-      yAxis: { type: 'value', show: false },
-      series: [
-        {
-          type: 'line',
-          smooth: true,
-          symbol: 'none',
-          data: item.data,
-          lineStyle: { color: item.color, width: 2 },
-          areaStyle: { color: `${item.color}22` },
-        },
-      ],
-    })
-  })
+const initCharts = () => {
+  createChart(trendChartRef.value)?.setOption(getTrendOption(activeTrendTab.value))
+  createChart(rankChartRef.value)?.setOption(getRankOption(activeRankTab.value))
+  initIndustryChart()
+}
+
+const switchTrendTab = (key: TrendTabKey) => {
+  activeTrendTab.value = key
+  const chart = chartInstances.find((instance) => instance.getDom() === trendChartRef.value)
+  chart?.setOption(getTrendOption(key), true)
+}
+
+const switchRankTab = (key: RankTabKey) => {
+  activeRankTab.value = key
+  const chart = chartInstances.find((instance) => instance.getDom() === rankChartRef.value)
+  chart?.setOption(getRankOption(key), true)
 }
 
 const projectLngLat = ([lng, lat]: Coordinate, z = 0) =>
   new THREE.Vector3((lng - mapCenter[0]) * mapScale, (lat - mapCenter[1]) * mapScale, z)
 
-const getProvinceColor = (value = 0) => {
-  if (value > 10000) return new THREE.Color('#ff3d62')
-  if (value > 5000) return new THREE.Color('#ff9c26')
-  if (value > 1000) return new THREE.Color('#09b9ff')
-  if (value > 500) return new THREE.Color('#086fe8')
-  return new THREE.Color('#05408f')
-}
-
 const getFeaturePolygons = (feature: ChinaFeature): PolygonCoordinates[] => {
   if (feature.geometry.type === 'Polygon') {
     return [feature.geometry.coordinates as PolygonCoordinates]
   }
-
   return feature.geometry.coordinates as MultiPolygonCoordinates
 }
 
@@ -413,12 +526,8 @@ const createShapeFromPolygon = (polygon: PolygonCoordinates) => {
   const shape = new THREE.Shape()
   outerRing.forEach((coordinate, index) => {
     const point = projectLngLat(coordinate)
-    if (index === 0) {
-      shape.moveTo(point.x, point.y)
-      return
-    }
-
-    shape.lineTo(point.x, point.y)
+    if (index === 0) shape.moveTo(point.x, point.y)
+    else shape.lineTo(point.x, point.y)
   })
 
   holes.forEach((holeRing) => {
@@ -426,12 +535,8 @@ const createShapeFromPolygon = (polygon: PolygonCoordinates) => {
     const path = new THREE.Path()
     holeRing.forEach((coordinate, index) => {
       const point = projectLngLat(coordinate)
-      if (index === 0) {
-        path.moveTo(point.x, point.y)
-        return
-      }
-
-      path.lineTo(point.x, point.y)
+      if (index === 0) path.moveTo(point.x, point.y)
+      else path.lineTo(point.x, point.y)
     })
     shape.holes.push(path)
   })
@@ -473,7 +578,7 @@ const createTextSprite = (text: string) => {
   const context = canvas.getContext('2d')
 
   if (context) {
-    context.font = '24px Microsoft YaHei, sans-serif'
+    context.font = '22px Microsoft YaHei, sans-serif'
     context.textAlign = 'center'
     context.textBaseline = 'middle'
     context.shadowColor = '#18cfff'
@@ -490,122 +595,68 @@ const createTextSprite = (text: string) => {
     depthWrite: false,
   })
   const sprite = new THREE.Sprite(material)
-  sprite.scale.set(38, 12, 1)
+  sprite.scale.set(36, 11, 1)
   return sprite
 }
 
 const buildThreeProvince = (feature: ChinaFeature) => {
   if (!chinaMapGroup) return
-  const group = chinaMapGroup
 
   const name = feature.properties?.name ?? ''
-  const value = mapDataByName.get(name) ?? 380
-  const color = getProvinceColor(value)
   const material = new THREE.MeshPhongMaterial({
-    color,
-    emissive: color,
-    emissiveIntensity: 0.12,
+    color: '#0a3d7a',
+    emissive: '#0a5a9e',
+    emissiveIntensity: 0.18,
     transparent: true,
-    opacity: 0.88,
-    shininess: 60,
+    opacity: 0.92,
+    shininess: 80,
   })
 
   getFeaturePolygons(feature).forEach((polygon) => {
     const shape = createShapeFromPolygon(polygon)
     if (!shape) return
 
-    const geometry = new THREE.ExtrudeGeometry(shape, {
-      depth: 5,
-      bevelEnabled: false,
-    })
+    const geometry = new THREE.ExtrudeGeometry(shape, { depth: 4, bevelEnabled: false })
     geometry.computeVertexNormals()
 
     const mesh = new THREE.Mesh(geometry, material)
     mesh.position.z = -2
-    group.add(mesh)
-    polygon.forEach((ring) => addBorderLine(ring, group))
+    chinaMapGroup!.add(mesh)
+    polygon.forEach((ring) => addBorderLine(ring, chinaMapGroup!))
   })
 
   const center = getFeatureCenter(feature)
-  if (center && name) {
+  const value = mapDataByName.get(name) ?? 0
+  if (center && name && value > 0) {
     const label = createTextSprite(name)
     label.position.copy(projectLngLat(center, 16))
-    group.add(label)
-  }
-}
+    chinaMapGroup!.add(label)
 
-const addThreeStations = () => {
-  if (!chinaMapGroup) return
-  const group = chinaMapGroup
-
-  cityPoints.forEach((point) => {
-    const [lng, lat, power] = point.value as [number, number, number]
-    const position = projectLngLat([lng, lat], 18)
-    const station = new THREE.Mesh(
-      new THREE.SphereGeometry(2.6 + power / 70, 18, 18),
-      new THREE.MeshBasicMaterial({
-        color: '#ff4778',
-        transparent: true,
-        opacity: 0.92,
-        blending: THREE.AdditiveBlending,
-      }),
-    )
-    station.position.copy(position)
-    group.add(station)
-
-    const pulse = new THREE.Mesh(
-      new THREE.RingGeometry(4, 5.2, 48),
-      new THREE.MeshBasicMaterial({
-        color: '#ff4778',
-        transparent: true,
-        opacity: 0.45,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
-      }),
-    )
-    pulse.position.copy(position)
-    group.add(pulse)
-    stationPulseMeshes.push(pulse)
-  })
-}
-
-const addThreeFlyLines = () => {
-  if (!chinaMapGroup) return
-  const group = chinaMapGroup
-
-  cityLines.forEach((line, index) => {
-    const [startCoordinate, endCoordinate] = line.coords as [Coordinate, Coordinate]
-    const start = projectLngLat(startCoordinate, 20)
-    const end = projectLngLat(endCoordinate, 20)
-    const control = start.clone().lerp(end, 0.5)
-    control.z = 42 + line.value / 4
-    const curve = new THREE.QuadraticBezierCurve3(start, control, end)
-    const geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(96))
-    const material = new THREE.LineBasicMaterial({
-      color: '#ff9d26',
+    const barHeight = Math.max(8, Math.log10(value + 1) * 14)
+    const barGeometry = new THREE.BoxGeometry(3.2, 3.2, barHeight)
+    const barMaterial = new THREE.MeshPhongMaterial({
+      color: '#28c5ff',
+      emissive: '#28c5ff',
+      emissiveIntensity: 0.35,
       transparent: true,
-      opacity: 0.66,
+      opacity: 0.88,
+    })
+    const bar = new THREE.Mesh(barGeometry, barMaterial)
+    bar.position.copy(projectLngLat(center, barHeight / 2 + 6))
+    chinaMapGroup!.add(bar)
+    barMeshes.push(bar)
+
+    const glowGeometry = new THREE.BoxGeometry(4, 4, 1.2)
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: '#28c5ff',
+      transparent: true,
+      opacity: 0.55,
       blending: THREE.AdditiveBlending,
     })
-    group.add(new THREE.Line(geometry, material))
-
-    const flyPoint = new THREE.Mesh(
-      new THREE.SphereGeometry(2.6, 14, 14),
-      new THREE.MeshBasicMaterial({
-        color: '#ffe66d',
-        transparent: true,
-        opacity: 0.88,
-        blending: THREE.AdditiveBlending,
-      }),
-    )
-    group.add(flyPoint)
-    mapFlyLineObjects.push({
-      mesh: flyPoint,
-      curve,
-      speed: 0.1 + index * 0.015,
-      offset: index * 0.17,
-    })
-  })
+    const glow = new THREE.Mesh(glowGeometry, glowMaterial)
+    glow.position.copy(projectLngLat(center, 6))
+    chinaMapGroup!.add(glow)
+  }
 }
 
 const initThreeChinaMap = () => {
@@ -630,8 +681,6 @@ const initThreeChinaMap = () => {
   mapScene.add(chinaMapGroup)
 
   chinaGeoJson.features.forEach(buildThreeProvince)
-  addThreeFlyLines()
-  addThreeStations()
   resizeThreeChinaMap()
 }
 
@@ -656,111 +705,50 @@ const updateThreeChinaMap = () => {
     chinaMapGroup.rotation.z = Math.sin(elapsed * 0.42) * 0.008
   }
 
-  stationPulseMeshes.forEach((mesh, index) => {
-    const progress = (elapsed * 0.58 + index * 0.16) % 1
-    mesh.scale.setScalar(1 + progress * 2.2)
-    mesh.material.opacity = 0.42 * (1 - progress)
-  })
-
-  mapFlyLineObjects.forEach((item) => {
-    const progress = (elapsed * item.speed + item.offset) % 1
-    item.mesh.position.copy(item.curve.getPoint(progress))
-    item.mesh.material.opacity = 0.42 + Math.sin(progress * Math.PI) * 0.5
+  barMeshes.forEach((bar, index) => {
+    const pulse = 1 + Math.sin(elapsed * 1.6 + index * 0.4) * 0.04
+    bar.scale.set(1, 1, pulse)
   })
 
   mapRenderer.render(mapScene, mapCamera)
 }
 
-const initThree = () => {
-  const canvas = threeCanvasRef.value
-  if (!canvas) return
-
-  renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-
-  scene = new THREE.Scene()
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000)
-  camera.position.z = 120
-
-  const geometry = new THREE.BufferGeometry()
-  const vertices: number[] = []
-  for (let index = 0; index < 900; index += 1) {
-    vertices.push(
-      THREE.MathUtils.randFloatSpread(320),
-      THREE.MathUtils.randFloatSpread(180),
-      THREE.MathUtils.randFloat(-180, 80),
-    )
-  }
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
-
-  const material = new THREE.PointsMaterial({
-    color: '#1cb7ff',
-    size: 0.8,
-    transparent: true,
-    opacity: 0.62,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  })
-  particles = new THREE.Points(geometry, material)
-  scene.add(particles)
-
-  const ringGeometry = new THREE.TorusGeometry(54, 0.16, 8, 96)
-  const ringMaterial = new THREE.MeshBasicMaterial({
-    color: '#146cff',
-    transparent: true,
-    opacity: 0.28,
-    blending: THREE.AdditiveBlending,
-  })
-  const ring = new THREE.Mesh(ringGeometry, ringMaterial)
-  ring.rotation.x = Math.PI / 2.7
-  ring.position.set(30, -8, -60)
-  scene.add(ring)
-
+const startMapAnimation = () => {
   const animate = () => {
     animationFrame = window.requestAnimationFrame(animate)
-    if (particles) {
-      particles.rotation.y += 0.0007
-      particles.rotation.x += 0.0002
-    }
-    ring.rotation.z += 0.003
-    renderer?.render(scene as THREE.Scene, camera as THREE.Camera)
     updateThreeChinaMap()
   }
-
-  resizeThree()
   animate()
 }
 
-const resizeThree = () => {
-  if (!renderer || !camera) return
-  const width = window.innerWidth
-  const height = window.innerHeight
-  renderer.setSize(width, height, false)
-  camera.aspect = width / height
-  camera.updateProjectionMatrix()
-  resizeThreeChinaMap()
-}
-
 const handleResize = () => {
-  resizeThree()
+  resizeThreeChinaMap()
   chartInstances.forEach((chart) => chart.resize())
 }
 
 onMounted(async () => {
+  document.documentElement.style.overflow = 'hidden'
+  document.body.style.overflow = 'hidden'
+  const app = document.getElementById('app')
+  if (app) app.style.overflow = 'hidden'
+
   await nextTick()
-  initThree()
   initThreeChinaMap()
+  startMapAnimation()
   initCharts()
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
+  document.documentElement.style.overflow = ''
+  document.body.style.overflow = ''
+  const app = document.getElementById('app')
+  if (app) app.style.overflow = ''
+
   window.removeEventListener('resize', handleResize)
   window.cancelAnimationFrame(animationFrame)
   chartInstances.forEach((chart) => chart.dispose())
-  renderer?.dispose()
   mapRenderer?.dispose()
-  scene?.clear()
   mapScene?.clear()
 })
 </script>
@@ -772,52 +760,21 @@ $text-main: #e7f4ff;
 $text-muted: #80a8d8;
 
 .viz-screen {
-  position: relative;
-  width: 100vw;
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
-  padding: 16px 18px 22px;
+  padding: 12px 16px 14px;
   color: $text-main;
-  font-family:
-    'Microsoft YaHei',
-    'PingFang SC',
-    system-ui,
-    sans-serif;
-  background:
-    radial-gradient(circle at 50% 18%, rgba(0, 101, 255, 0.28), transparent 34%),
-    radial-gradient(circle at 50% 80%, rgba(12, 144, 255, 0.16), transparent 36%),
-    linear-gradient(180deg, #02091f 0%, #031337 48%, #020817 100%);
-}
-
-.viz-screen__stars,
-.viz-screen__glow {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.viz-screen__stars {
-  z-index: 0;
-}
-
-.viz-screen__glow {
-  width: 34vw;
-  height: 34vw;
-  border-radius: 999px;
-  filter: blur(36px);
-  opacity: 0.42;
-}
-
-.viz-screen__glow--left {
-  top: 12vh;
-  left: -14vw;
-  background: rgba(0, 83, 255, 0.45);
-}
-
-.viz-screen__glow--right {
-  right: -12vw;
-  bottom: 2vh;
-  background: rgba(0, 194, 255, 0.28);
+  font-family: 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+  background-color: #020817;
+  background-image: var(--bg-image);
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 .viz-header,
@@ -827,58 +784,35 @@ $text-muted: #80a8d8;
 }
 
 .viz-header {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  height: 60px;
-  margin-bottom: 12px;
-}
-
-.viz-header__meta,
-.viz-header__weather {
   display: flex;
+  flex-shrink: 0;
+  justify-content: center;
   align-items: center;
-  gap: 16px;
-  color: #bcdcff;
-  font-size: 14px;
-}
-
-.viz-header__weather {
-  justify-content: flex-end;
-}
-
-.viz-header__weather-icon {
-  color: #ffe27a;
-}
-
-.viz-header__cube {
-  width: 18px;
-  height: 18px;
-  border: 1px solid #23bbff;
-  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
-  box-shadow: 0 0 12px #0aa6ff;
+  height: 52px;
+  margin-bottom: 8px;
 }
 
 .viz-header__title-wrap {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 20px;
 }
 
 .viz-header__title {
   margin: 0;
   color: #eaf6ff;
-  font-size: clamp(30px, 2.6vw, 44px);
+  font-size: clamp(24px, 2vw, 36px);
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
   text-shadow:
     0 0 12px rgba(69, 178, 255, 0.8),
     0 0 28px rgba(49, 111, 255, 0.55);
 }
 
 .viz-header__wing {
-  width: clamp(160px, 18vw, 260px);
-  height: 30px;
+  width: clamp(140px, 16vw, 240px);
+  height: 28px;
   border-top: 2px solid rgba(42, 167, 255, 0.65);
   border-bottom: 1px solid rgba(42, 167, 255, 0.24);
   filter: drop-shadow(0 0 10px rgba(30, 151, 255, 0.8));
@@ -894,30 +828,32 @@ $text-muted: #80a8d8;
 
 .viz-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 25vw) 1fr minmax(260px, 24vw);
-  gap: 14px;
-  height: calc(100vh - 110px);
-  min-height: 650px;
+  flex: 1;
+  grid-template-columns: minmax(240px, 24vw) 1fr minmax(240px, 24vw);
+  gap: 10px;
+  min-height: 0;
 }
 
 .viz-column {
   display: grid;
-  gap: 12px;
+  gap: 8px;
+  min-height: 0;
 }
 
 .viz-column--left {
-  grid-template-rows: 1.1fr 0.95fr 1.15fr;
+  grid-template-rows: 1.15fr 0.95fr 1fr;
 }
 
 .viz-column--right {
-  grid-template-rows: 1fr 0.92fr 0.82fr;
+  grid-template-rows: 1fr 0.95fr 0.85fr;
 }
 
 .viz-center {
-  position: relative;
   display: grid;
-  grid-template-rows: 96px 1fr 36px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
+  min-height: 0;
+  gap: 6px;
 }
 
 :deep(.panel-card) {
@@ -925,12 +861,12 @@ $text-muted: #80a8d8;
   overflow: hidden;
   min-height: 0;
   border: 1px solid $panel-border;
-  border-radius: 8px;
+  border-radius: 6px;
   background:
-    linear-gradient(135deg, rgba(35, 123, 255, 0.16), transparent 38%),
+    linear-gradient(135deg, rgba(35, 123, 255, 0.14), transparent 42%),
     $panel-bg;
   box-shadow:
-    inset 0 0 22px rgba(12, 114, 255, 0.12),
+    inset 0 0 22px rgba(12, 114, 255, 0.1),
     0 0 18px rgba(4, 37, 95, 0.34);
   backdrop-filter: blur(8px);
 
@@ -938,8 +874,8 @@ $text-muted: #80a8d8;
   &::after {
     content: '';
     position: absolute;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     border-color: #2cc8ff;
     border-style: solid;
     pointer-events: none;
@@ -962,87 +898,126 @@ $text-muted: #80a8d8;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 36px;
+  height: 34px;
   padding: 0 12px;
   border-bottom: 1px solid rgba(42, 167, 255, 0.16);
+  background: linear-gradient(90deg, rgba(20, 80, 180, 0.22), transparent);
 
   h2 {
     position: relative;
     margin: 0;
-    padding-left: 12px;
+    padding-left: 14px;
     color: #e5f4ff;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
 
     &::before {
-      content: '';
+      content: '◆';
       position: absolute;
-      top: 3px;
-      bottom: 3px;
       left: 0;
-      width: 3px;
-      border-radius: 3px;
-      background: #7d65ff;
-      box-shadow: 0 0 10px #31bfff;
+      color: #28c5ff;
+      font-size: 10px;
+      text-shadow: 0 0 8px #28c5ff;
     }
   }
+}
 
-  span {
-    color: $text-muted;
-    font-size: 11px;
+:deep(.panel-card__more) {
+  border: none;
+  background: none;
+  color: #6689b5;
+  font-size: 11px;
+  cursor: pointer;
+
+  &:hover {
+    color: #28c5ff;
   }
 }
 
 :deep(.panel-card__body) {
-  height: calc(100% - 36px);
-  padding: 12px;
+  height: calc(100% - 34px);
+  min-height: 0;
+  padding: 8px 10px;
+}
+
+.panel--trend :deep(.panel-card__body),
+.panel--ranking :deep(.panel-card__body) {
+  display: grid;
+  grid-template-rows: 28px 1fr;
+  gap: 4px;
+}
+
+.tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tab-bar--compact {
+  gap: 4px;
+}
+
+.tab-bar__item {
+  padding: 3px 10px;
+  border: 1px solid rgba(42, 167, 255, 0.2);
+  border-radius: 3px;
+  background: rgba(6, 25, 66, 0.6);
+  color: #779bc8;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &--active {
+    border-color: rgba(40, 197, 255, 0.6);
+    background: rgba(40, 197, 255, 0.15);
+    color: #28c5ff;
+    box-shadow: 0 0 10px rgba(40, 197, 255, 0.25);
+  }
 }
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   height: 100%;
 }
 
 .metric-card {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 6px;
   min-width: 0;
-  padding: 10px;
+  padding: 6px 8px;
   border: 1px solid rgba(42, 167, 255, 0.12);
-  border-radius: 8px;
+  border-radius: 6px;
   background: rgba(6, 25, 66, 0.72);
 }
 
 .metric-card__icon {
-  flex: 0 0 34px;
-  font-size: 28px;
+  flex: 0 0 28px;
+  font-size: 22px;
   line-height: 1;
-  text-shadow: 0 0 16px currentColor;
+  text-shadow: 0 0 14px currentColor;
 }
 
-.metric-card__label,
-.business-item p,
-.overview-stat p,
-.channel-total span {
+.metric-card__label {
   margin: 0;
   color: $text-muted;
-  font-size: 11px;
+  font-size: 10px;
+  line-height: 1.3;
 }
 
 .metric-card strong {
   display: block;
-  margin: 2px 0;
+  margin: 3px 0 2px;
   color: #f2fbff;
-  font-size: clamp(16px, 1.35vw, 23px);
+  font-size: clamp(15px, 1.2vw, 20px);
   line-height: 1.1;
 }
 
-.metric-card__delta,
-.business-item span {
+.metric-card__delta {
   color: #66dfb1;
   font-size: 10px;
 }
@@ -1050,72 +1025,71 @@ $text-muted: #80a8d8;
 .chart {
   width: 100%;
   height: 100%;
-}
-
-.business-list {
-  display: grid;
-  height: 100%;
-  gap: 8px;
-}
-
-.business-item {
-  display: grid;
-  grid-template-columns: 28px 1fr 40%;
-  align-items: center;
   min-height: 0;
-  gap: 8px;
 }
 
-.business-item__icon {
-  font-size: 18px;
-  text-shadow: 0 0 12px currentColor;
-}
-
-.business-item__content {
-  min-width: 0;
-}
-
-.business-item strong {
-  display: inline-block;
-  margin: 2px 0;
-  font-size: 18px;
-}
-
-.sparkline {
-  height: 42px;
-  min-width: 0;
-}
-
-.overview-stats {
+.center-stats {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  align-items: center;
-  gap: 12px;
-  height: 100%;
+  flex-shrink: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 6px;
 }
 
-.overview-stat {
+.center-stat {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(42, 167, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(4, 18, 50, 0.55);
 }
 
-.overview-stat__icon {
-  color: #2aa7ff;
-  font-size: 24px;
-  text-shadow: 0 0 16px #2aa7ff;
+.center-stat__icon {
+  color: #28c5ff;
+  font-size: 22px;
+  text-shadow: 0 0 14px #28c5ff;
 }
 
-.overview-stat strong {
+.center-stat strong {
   color: #f1fbff;
-  font-size: clamp(18px, 1.6vw, 27px);
+  font-size: clamp(20px, 1.8vw, 28px);
   line-height: 1.1;
+
+  small {
+    margin-left: 2px;
+    color: $text-muted;
+    font-size: 12px;
+    font-weight: 400;
+  }
+}
+
+.center-stat p {
+  margin: 2px 0 0;
+  color: $text-muted;
+  font-size: 11px;
 }
 
 .map-shell {
   position: relative;
   min-height: 0;
+  border: 1px solid rgba(42, 167, 255, 0.22);
+  border-radius: 6px;
+  background: rgba(2, 12, 36, 0.45);
+}
+
+.map-shell__title {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 3;
+  transform: translateX(-50%);
+  color: #c5dcff;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 10px rgba(40, 197, 255, 0.5);
 }
 
 .three-map {
@@ -1128,19 +1102,20 @@ $text-muted: #80a8d8;
 
 .map-shell__halo {
   position: absolute;
-  inset: 12% 12% 6%;
+  inset: 10% 10% 8%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 138, 255, 0.24), transparent 58%);
-  filter: blur(6px);
+  background: radial-gradient(circle, rgba(0, 138, 255, 0.28), transparent 58%);
+  filter: blur(8px);
+  pointer-events: none;
 }
 
 .map-inset {
   position: absolute;
-  right: 3.5%;
-  bottom: 8%;
+  right: 3%;
+  bottom: 6%;
   z-index: 2;
-  width: 112px;
-  height: 92px;
+  width: 108px;
+  height: 88px;
   padding: 6px;
   border: 1px solid rgba(42, 167, 255, 0.42);
   border-radius: 4px;
@@ -1152,7 +1127,7 @@ $text-muted: #80a8d8;
 
 .map-inset__dots {
   position: relative;
-  height: 64px;
+  height: 60px;
 }
 
 .map-inset__dots i {
@@ -1164,118 +1139,196 @@ $text-muted: #80a8d8;
   box-shadow: 0 0 8px #26cfff;
 }
 
-.legend {
+.category-nav {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 6px;
+}
+
+.category-nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 64px;
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  color: #779bc8;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 0.2s;
+
+  &--active,
+  &:hover {
+    color: #28c5ff;
+  }
+
+  &--active .category-nav__icon {
+    border-color: rgba(40, 197, 255, 0.6);
+    box-shadow: 0 0 14px rgba(40, 197, 255, 0.35);
+  }
+}
+
+.category-nav__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 22px;
-  color: #9fbfe8;
-  font-size: 12px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(42, 167, 255, 0.25);
+  border-radius: 50%;
+  background: rgba(6, 25, 66, 0.6);
+  font-size: 16px;
 }
 
-.legend span {
-  display: inline-flex;
+.livelihood-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  height: 100%;
+}
+
+.livelihood-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid rgba(42, 167, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(6, 25, 66, 0.5);
+}
+
+.livelihood-card__ring {
+  --progress: 0.7;
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: conic-gradient(#28c5ff calc(var(--progress) * 360deg), rgba(42, 167, 255, 0.12) 0);
+  box-shadow: 0 0 16px rgba(40, 197, 255, 0.2);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: rgba(4, 18, 50, 0.92);
+  }
+}
+
+.livelihood-card__icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  font-size: 18px;
+  pointer-events: none;
+}
+
+.livelihood-card__label {
+  margin: 0;
+  color: $text-muted;
+  font-size: 10px;
+  text-align: center;
+}
+
+.livelihood-card strong {
+  color: #f2fbff;
+  font-size: 15px;
+}
+
+.livelihood-card__delta {
+  color: #66dfb1;
+  font-size: 10px;
+}
+
+.alert-list {
+  display: grid;
+  gap: 6px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.alert-item {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
   align-items: center;
   gap: 6px;
-}
-
-.legend i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  box-shadow: 0 0 10px currentColor;
-}
-
-.channel-total {
-  margin-bottom: 2px;
-}
-
-.channel-total strong {
-  display: block;
-  margin-top: 4px;
-  color: #47aaff;
-  font-size: 26px;
-  line-height: 1;
-  text-shadow: 0 0 14px rgba(47, 154, 255, 0.62);
-}
-
-.chart--channels {
-  height: calc(100% - 42px);
-}
-
-.monitor-table {
-  display: grid;
-  grid-template-rows: repeat(6, 1fr);
-  height: 100%;
-  color: #b7d8ff;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: rgba(6, 25, 66, 0.55);
   font-size: 12px;
+
+  &--red {
+    border-left: 3px solid #ff3d62;
+    .alert-item__icon { color: #ff3d62; }
+  }
+
+  &--orange {
+    border-left: 3px solid #ff9c26;
+    .alert-item__icon { color: #ff9c26; }
+  }
+
+  &--yellow {
+    border-left: 3px solid #ffd33c;
+    .alert-item__icon { color: #ffd33c; }
+  }
+
+  &--blue {
+    border-left: 3px solid #28c5ff;
+    .alert-item__icon { color: #28c5ff; }
+  }
 }
 
-.monitor-table__head,
-.monitor-row {
-  display: grid;
-  grid-template-columns: 1fr 0.7fr 34px;
-  align-items: center;
-  gap: 8px;
+.alert-item__icon {
+  font-size: 10px;
+  text-shadow: 0 0 8px currentColor;
 }
 
-.monitor-table__head {
+.alert-item__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  strong {
+    color: #e5f4ff;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  span {
+    color: $text-muted;
+    font-size: 10px;
+  }
+}
+
+.alert-item time {
   color: #6689b5;
-  font-size: 11px;
-}
-
-.monitor-row strong {
-  color: #d4ff65;
-  font-weight: 500;
-}
-
-.monitor-row i {
-  width: 9px;
-  height: 9px;
-  margin-left: auto;
-  border-radius: 50%;
-  background: #55f07c;
-  box-shadow: 0 0 12px #55f07c;
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 @media (max-width: 1180px) {
-  .viz-screen {
-    overflow: auto;
-  }
-
-  .viz-header {
-    grid-template-columns: 1fr;
-    gap: 8px;
-    height: auto;
-    text-align: center;
-  }
-
-  .viz-header__meta,
-  .viz-header__weather,
-  .viz-header__title-wrap {
-    justify-content: center;
-  }
-
   .viz-header__wing {
     display: none;
   }
 
-  .viz-layout {
-    grid-template-columns: 1fr;
-    height: auto;
+  .viz-header__title {
+    font-size: clamp(22px, 2vw, 32px);
   }
 
-  .viz-column,
-  .viz-center {
-    grid-template-rows: none;
-  }
-
-  :deep(.panel-card) {
-    min-height: 260px;
-  }
-
-  .viz-center {
-    min-height: 680px;
+  .metric-card strong {
+    font-size: clamp(13px, 1vw, 17px);
   }
 }
 </style>
