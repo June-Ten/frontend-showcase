@@ -13,12 +13,12 @@
         <PanelCard title="核心指标概览" class="panel--metrics">
           <div class="metric-grid">
             <div v-for="metric in coreMetrics" :key="metric.label" class="metric-card">
-              <span class="metric-card__icon" :style="{ color: metric.color }">{{ metric.icon }}</span>
-              <div class="metric-card__body">
-                <p class="metric-card__label">{{ metric.label }}</p>
-                <strong>{{ metric.value }}</strong>
-                <span class="metric-card__delta">同比 ↑ {{ metric.yoy }}</span>
-              </div>
+              <span class="metric-card__icon" :style="{ color: metric.color }">
+                <AppIcon :name="metric.icon" :size="28" />
+              </span>
+              <p class="metric-card__label">{{ metric.label }}</p>
+              <strong class="metric-card__value">{{ metric.value }}</strong>
+              <span class="metric-card__delta">同比 <em>+{{ metric.yoy }}</em></span>
             </div>
           </div>
         </PanelCard>
@@ -144,6 +144,7 @@ import * as echarts from 'echarts'
 import * as THREE from 'three'
 import chinaMap from '../../assets/map/100000_full.json'
 import backgroundImg from '../../assets/img/bigscreen/background.png'
+import AppIcon from '../../components/AppIcon.vue'
 import { mapData } from './echartsChinaMap'
 
 type ChartElement = HTMLElement | null
@@ -211,12 +212,12 @@ const mapCenter: Coordinate = [104.2, 36.2]
 const mapScale = 8.2
 
 const coreMetrics = [
-  { label: '常住人口(万人)', value: '140,967', yoy: '0.8%', icon: '👥', color: '#28c5ff' },
-  { label: 'GDP(亿元)', value: '1,260,582', yoy: '5.2%', icon: '◈', color: '#36e68f' },
-  { label: '工业增加值(亿元)', value: '312,890', yoy: '4.6%', icon: '⚙', color: '#a978ff' },
-  { label: '社会消费品零售总额(亿元)', value: '478,306', yoy: '8.1%', icon: '🛒', color: '#ff9d26' },
-  { label: '固定资产投资(亿元)', value: '512,305', yoy: '3.4%', icon: '🏗', color: '#ffd33c' },
-  { label: '一般公共预算收入(亿元)', value: '116,254', yoy: '6.8%', icon: '💰', color: '#5b8cff' },
+  { label: '常住人口(万人)', value: '140,967', yoy: '0.8%', icon: 'multiple-user', color: '#28c5ff' },
+  { label: 'GDP(亿元)', value: '1,260,582', yoy: '5.2%', icon: 'money', color: '#36e68f' },
+  { label: '工业增加值(亿元)', value: '312,890', yoy: '4.6%', icon: 'company', color: '#a978ff' },
+  { label: '社会消费品零售总额(亿元)', value: '478,306', yoy: '8.1%', icon: 'car', color: '#ff9d26' },
+  { label: '固定资产投资(亿元)', value: '512,305', yoy: '3.4%', icon: 'funds', color: '#ffd33c' },
+  { label: '一般公共预算收入(亿元)', value: '116,254', yoy: '6.8%', icon: 'money-ball', color: '#5b8cff' },
 ]
 
 const trendTabs = [
@@ -986,40 +987,57 @@ $text-muted: #80a8d8;
 
 .metric-card {
   display: flex;
-  align-items: flex-start;
-  gap: 6px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid rgba(42, 167, 255, 0.12);
-  border-radius: 6px;
+  padding: 10px 6px;
+  border: 1px solid rgba(42, 167, 255, 0.22);
+  border-radius: 4px;
   background: rgba(6, 25, 66, 0.72);
+  text-align: center;
 }
 
 .metric-card__icon {
-  flex: 0 0 28px;
-  font-size: 22px;
-  line-height: 1;
-  text-shadow: 0 0 14px currentColor;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+  filter: drop-shadow(0 0 12px currentColor);
+
+  :deep(path) {
+    fill: currentColor;
+  }
 }
 
 .metric-card__label {
   margin: 0;
-  color: $text-muted;
-  font-size: 10px;
-  line-height: 1.3;
+  color: rgba(186, 214, 240, 0.88);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
-.metric-card strong {
-  display: block;
-  margin: 3px 0 2px;
-  color: #f2fbff;
-  font-size: clamp(15px, 1.2vw, 20px);
+.metric-card__value {
+  margin: 2px 0;
+  color: #ffffff;
+  font-size: clamp(17px, 1.35vw, 22px);
+  font-weight: 700;
   line-height: 1.1;
+  letter-spacing: 0.02em;
 }
 
 .metric-card__delta {
-  color: #66dfb1;
-  font-size: 10px;
+  color: rgba(186, 214, 240, 0.75);
+  font-size: 11px;
+  line-height: 1.2;
+
+  em {
+    color: #66dfb1;
+    font-style: normal;
+    font-weight: 500;
+  }
 }
 
 .chart {
@@ -1327,8 +1345,8 @@ $text-muted: #80a8d8;
     font-size: clamp(22px, 2vw, 32px);
   }
 
-  .metric-card strong {
-    font-size: clamp(13px, 1vw, 17px);
+  .metric-card__value {
+    font-size: clamp(14px, 1.05vw, 18px);
   }
 }
 </style>
