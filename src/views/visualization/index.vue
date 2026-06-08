@@ -40,7 +40,24 @@
         </PanelCard>
 
         <PanelCard title="产业结构分析" class="panel--industry">
-          <div ref="industryChartRef" class="chart chart--industry" />
+          <div class="industry-chart">
+            <div ref="industryChartRef" class="chart chart--industry" />
+            <ul class="industry-legend">
+              <li
+                v-for="item in industryStructure"
+                :key="item.name"
+                class="industry-legend__item"
+              >
+                <span
+                  class="industry-legend__dot"
+                  :style="{ '--dot-color': item.legendColor }"
+                />
+                <span class="industry-legend__name">{{ item.name }}</span>
+                <span class="industry-legend__percent">{{ item.percent }}</span>
+                <span class="industry-legend__value">{{ item.value.toLocaleString() }} 亿元</span>
+              </li>
+            </ul>
+          </div>
         </PanelCard>
       </aside>
 
@@ -56,19 +73,7 @@
         </div>
 
         <div class="map-shell">
-          <div class="map-shell__title">中国地图三维态势</div>
-          <canvas ref="threeMapCanvasRef" class="three-map" aria-label="中国地图三维态势" />
-          <div class="map-shell__halo" aria-hidden="true" />
-          <div class="map-inset">
-            <div class="map-inset__dots" aria-hidden="true">
-              <i
-                v-for="dot in insetDots"
-                :key="`${dot.left}-${dot.top}`"
-                :style="{ left: dot.left, top: dot.top }"
-              />
-            </div>
-            <span>南海诸岛</span>
-          </div>
+          <China3dMap />
         </div>
 
         <div class="category-nav">
@@ -141,11 +146,9 @@
 <script setup lang="ts">
 import { defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
-import * as THREE from 'three'
-import chinaMap from '../../assets/map/100000_full.json'
 import backgroundImg from '../../assets/img/bigscreen/background.png'
 import AppIcon from '../../components/AppIcon.vue'
-import { mapData } from './echartsChinaMap'
+import China3dMap from './China3dMap.vue'
 
 type ChartElement = HTMLElement | null
 type TrendTabKey = 'gdp' | 'industry' | 'investment' | 'retail'
@@ -174,23 +177,6 @@ const PanelCard = defineComponent({
   },
 })
 
-type Coordinate = [number, number]
-type PolygonCoordinates = Coordinate[][]
-type MultiPolygonCoordinates = PolygonCoordinates[]
-type ChinaFeature = {
-  properties?: {
-    name?: string
-    center?: Coordinate
-    centroid?: Coordinate
-  }
-  geometry: {
-    type: 'Polygon' | 'MultiPolygon'
-    coordinates: PolygonCoordinates | MultiPolygonCoordinates
-  }
-}
-type ChinaGeoJson = { features: ChinaFeature[] }
-
-const threeMapCanvasRef = ref<HTMLCanvasElement | null>(null)
 const trendChartRef = ref<ChartElement>(null)
 const rankChartRef = ref<ChartElement>(null)
 const industryChartRef = ref<ChartElement>(null)
@@ -199,17 +185,7 @@ const activeTrendTab = ref<TrendTabKey>('gdp')
 const activeRankTab = ref<RankTabKey>('gdp')
 const activeMapCategory = ref('population')
 
-let mapRenderer: THREE.WebGLRenderer | null = null
-let mapScene: THREE.Scene | null = null
-let mapCamera: THREE.PerspectiveCamera | null = null
-let chinaMapGroup: THREE.Group | null = null
-const barMeshes: THREE.Mesh[] = []
-let animationFrame = 0
 const chartInstances: echarts.ECharts[] = []
-const chinaGeoJson = chinaMap as unknown as ChinaGeoJson
-const mapDataByName = new Map(mapData.map((item) => [item.name, item.value]))
-const mapCenter: Coordinate = [104.2, 36.2]
-const mapScale = 8.2
 
 const coreMetrics = [
   { label: '常住人口(万人)', value: '140,967', yoy: '0.8%', icon: 'multiple-user', color: '#28c5ff' },
@@ -295,19 +271,43 @@ const alerts = [
   { id: 4, level: 'blue', title: '大风预警', region: '渤海', time: '1小时前' },
 ]
 
-const insetDots = [
-  { left: '26%', top: '18%' },
-  { left: '42%', top: '14%' },
-  { left: '58%', top: '22%' },
-  { left: '72%', top: '31%' },
-  { left: '34%', top: '38%' },
-  { left: '50%', top: '46%' },
-  { left: '66%', top: '52%' },
-  { left: '24%', top: '62%' },
-  { left: '43%', top: '70%' },
-  { left: '60%', top: '76%' },
-  { left: '78%', top: '68%' },
-]
+const industryStructure = [
+  {
+    name: '第一产业',
+    value: 89463,
+    percent: '7.1%',
+    legendColor: '#00f28f',
+    gradient: [
+      { offset: 0, color: '#00f28f' },
+      { offset: 1, color: '#00c9a7' },
+    ],
+    glow: 'rgba(0, 242, 143, 0.55)',
+  },
+  {
+    name: '第二产业',
+    value: 470072,
+    percent: '37.3%',
+    legendColor: '#6a11cb',
+    gradient: [
+      { offset: 0, color: '#3a47d5' },
+      { offset: 1, color: '#6a11cb' },
+    ],
+    glow: 'rgba(106, 17, 203, 0.55)',
+  },
+  {
+    name: '第三产业',
+    value: 701047,
+    percent: '55.6%',
+    legendColor: '#6dd5ed',
+    gradient: [
+      { offset: 0, color: '#2193b0' },
+      { offset: 1, color: '#6dd5ed' },
+    ],
+    glow: 'rgba(33, 147, 176, 0.55)',
+  },
+] as const
+
+const industryTotal = industryStructure.reduce((sum, item) => sum + item.value, 0)
 
 const createChart = (el: ChartElement) => {
   if (!el) return null
@@ -318,36 +318,39 @@ const createChart = (el: ChartElement) => {
 
 const getTrendOption = (key: TrendTabKey): echarts.EChartsOption => {
   const data = trendData[key]
+  const lineColor = '#1890ff'
   return {
     grid: { top: 12, right: 16, bottom: 24, left: 48 },
     tooltip: {
       trigger: 'axis',
       backgroundColor: 'rgba(3, 14, 36, 0.92)',
-      borderColor: '#1b6dff',
+      borderColor: lineColor,
+      borderWidth: 1,
       textStyle: { color: '#d9ecff' },
       formatter: (params: unknown) => {
         const items = params as { axisValue: string; value: number }[]
         const point = items[0]
         if (!point) return ''
-        return `${point.axisValue}<br/>${point.value.toLocaleString()} ${data.unit}`
+        return `${point.axisValue}<br/><span style="color:#fff;font-size:14px;font-weight:700">${point.value.toLocaleString()}</span>`
       },
     },
     xAxis: {
       type: 'category',
       boundaryGap: false,
       data: data.months,
-      axisLine: { lineStyle: { color: '#1c4a7a' } },
-      axisLabel: { color: '#779bc8', fontSize: 10 },
+      axisLine: { lineStyle: { color: 'rgba(120, 155, 200, 0.25)' } },
+      axisLabel: { color: 'rgba(186, 214, 240, 0.75)', fontSize: 10 },
       axisTick: { show: false },
     },
     yAxis: {
       type: 'value',
+      axisLine: { show: false },
       axisLabel: {
-        color: '#779bc8',
+        color: 'rgba(186, 214, 240, 0.75)',
         fontSize: 10,
         formatter: (value: number) => (value >= 10000 ? `${Math.round(value / 1000)}k` : String(value)),
       },
-      splitLine: { lineStyle: { color: 'rgba(59, 130, 246, 0.12)' } },
+      splitLine: { show: false },
     },
     series: [
       {
@@ -356,13 +359,23 @@ const getTrendOption = (key: TrendTabKey): echarts.EChartsOption => {
         symbol: 'circle',
         symbolSize: 6,
         data: data.values,
-        lineStyle: { color: '#28c5ff', width: 2, shadowColor: '#28c5ff', shadowBlur: 8 },
-        itemStyle: { color: '#28c5ff', borderColor: '#fff', borderWidth: 1 },
+        lineStyle: { color: lineColor, width: 2 },
+        itemStyle: { color: '#a0d9ff', borderColor: '#ffffff', borderWidth: 2 },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(40, 197, 255, 0.45)' },
-            { offset: 1, color: 'rgba(40, 197, 255, 0.02)' },
+            { offset: 0, color: 'rgba(24, 144, 255, 0.45)' },
+            { offset: 1, color: 'rgba(24, 144, 255, 0)' },
           ]),
+        },
+        emphasis: {
+          scale: true,
+          itemStyle: {
+            color: '#ffffff',
+            borderColor: lineColor,
+            borderWidth: 2,
+            shadowColor: 'rgba(24, 144, 255, 0.85)',
+            shadowBlur: 12,
+          },
         },
       },
     ],
@@ -423,73 +436,71 @@ const getRankOption = (key: RankTabKey): echarts.EChartsOption => {
   }
 }
 
+const getIndustryOption = (): echarts.EChartsOption => ({
+  tooltip: {
+    trigger: 'item',
+    backgroundColor: 'rgba(3, 14, 36, 0.92)',
+    borderColor: '#1890ff',
+    borderWidth: 1,
+    textStyle: { color: '#d9ecff' },
+    formatter: (params) => {
+      const item = params as { name: string; value: number; percent?: number }
+      return `${item.name}<br/>${item.value.toLocaleString()} 亿元 (${item.percent?.toFixed(1)}%)`
+    },
+  },
+  series: [
+    {
+      type: 'pie',
+      radius: ['58%', '78%'],
+      center: ['50%', '50%'],
+      avoidLabelOverlap: false,
+      padAngle: 1.5,
+      itemStyle: {
+        borderColor: '#050c17',
+        borderWidth: 2,
+        borderRadius: 4,
+      },
+      label: {
+        show: true,
+        position: 'center',
+        formatter: () => `{total|${industryTotal.toLocaleString()}}\n{unit|GDP (亿元)}`,
+        rich: {
+          total: {
+            color: '#ffffff',
+            fontSize: 15,
+            fontWeight: 700,
+            lineHeight: 22,
+          },
+          unit: {
+            color: 'rgba(186, 214, 240, 0.85)',
+            fontSize: 10,
+            lineHeight: 16,
+          },
+        },
+      },
+      labelLine: { show: false },
+      emphasis: {
+        scale: true,
+        scaleSize: 6,
+        itemStyle: {
+          shadowBlur: 18,
+        },
+      },
+      data: industryStructure.map((item) => ({
+        name: item.name,
+        value: item.value,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 1, 1, [...item.gradient]),
+          shadowColor: item.glow,
+          shadowBlur: 14,
+        },
+      })),
+    },
+  ],
+})
+
 const initIndustryChart = () => {
-  createChart(industryChartRef.value)?.setOption({
-    color: ['#28c5ff', '#1a7fd4', '#0a4a9e'],
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: 'rgba(3, 14, 36, 0.92)',
-      borderColor: '#1b6dff',
-      textStyle: { color: '#d9ecff' },
-      formatter: '{b}<br/>{c} 亿元 ({d}%)',
-    },
-    legend: {
-      orient: 'vertical',
-      right: 8,
-      top: 'center',
-      itemWidth: 8,
-      itemHeight: 8,
-      textStyle: { color: '#a9c7f5', fontSize: 11 },
-      formatter: (name: string) => {
-        const map: Record<string, string> = {
-          第一产业: '第一产业  7.1%  89,463 亿元',
-          第二产业: '第二产业  37.3%  470,072 亿元',
-          第三产业: '第三产业  55.6%  701,047 亿元',
-        }
-        return map[name] ?? name
-      },
-    },
-    series: [
-      {
-        type: 'pie',
-        radius: ['52%', '72%'],
-        center: ['36%', '50%'],
-        avoidLabelOverlap: false,
-        label: { show: false },
-        labelLine: { show: false },
-        data: [
-          { name: '第一产业', value: 89463 },
-          { name: '第二产业', value: 470072 },
-          { name: '第三产业', value: 701047 },
-        ],
-      },
-    ],
-    graphic: [
-      {
-        type: 'text',
-        left: '28%',
-        top: '42%',
-        style: {
-          text: '1,260,582',
-          fill: '#f2fbff',
-          fontSize: 18,
-          fontWeight: 700,
-          textAlign: 'center',
-        },
-      },
-      {
-        type: 'text',
-        left: '30%',
-        top: '54%',
-        style: {
-          text: '亿元',
-          fill: '#80a8d8',
-          fontSize: 11,
-          textAlign: 'center',
-        },
-      },
-    ],
-  })
+  createChart(industryChartRef.value)?.setOption(getIndustryOption())
 }
 
 const initCharts = () => {
@@ -510,247 +521,23 @@ const switchRankTab = (key: RankTabKey) => {
   chart?.setOption(getRankOption(key), true)
 }
 
-const projectLngLat = ([lng, lat]: Coordinate, z = 0) =>
-  new THREE.Vector3((lng - mapCenter[0]) * mapScale, (lat - mapCenter[1]) * mapScale, z)
-
-const getFeaturePolygons = (feature: ChinaFeature): PolygonCoordinates[] => {
-  if (feature.geometry.type === 'Polygon') {
-    return [feature.geometry.coordinates as PolygonCoordinates]
-  }
-  return feature.geometry.coordinates as MultiPolygonCoordinates
-}
-
-const createShapeFromPolygon = (polygon: PolygonCoordinates) => {
-  const [outerRing, ...holes] = polygon
-  if (!outerRing || outerRing.length < 3) return null
-
-  const shape = new THREE.Shape()
-  outerRing.forEach((coordinate, index) => {
-    const point = projectLngLat(coordinate)
-    if (index === 0) shape.moveTo(point.x, point.y)
-    else shape.lineTo(point.x, point.y)
-  })
-
-  holes.forEach((holeRing) => {
-    if (holeRing.length < 3) return
-    const path = new THREE.Path()
-    holeRing.forEach((coordinate, index) => {
-      const point = projectLngLat(coordinate)
-      if (index === 0) path.moveTo(point.x, point.y)
-      else path.lineTo(point.x, point.y)
-    })
-    shape.holes.push(path)
-  })
-
-  return shape
-}
-
-const addBorderLine = (ring: Coordinate[], target: THREE.Group) => {
-  const points = ring.map((coordinate) => projectLngLat(coordinate, 7))
-  const geometry = new THREE.BufferGeometry().setFromPoints(points)
-  const material = new THREE.LineBasicMaterial({
-    color: '#25d9ff',
-    transparent: true,
-    opacity: 0.72,
-    blending: THREE.AdditiveBlending,
-  })
-  target.add(new THREE.Line(geometry, material))
-}
-
-const getFeatureCenter = (feature: ChinaFeature): Coordinate | null => {
-  if (feature.properties?.centroid) return feature.properties.centroid
-  if (feature.properties?.center) return feature.properties.center
-
-  const firstPolygon = getFeaturePolygons(feature)[0]
-  const outerRing = firstPolygon?.[0]
-  if (!outerRing?.length) return null
-
-  const sum = outerRing.reduce(
-    (total, coordinate) => [total[0] + coordinate[0], total[1] + coordinate[1]] as Coordinate,
-    [0, 0],
-  )
-  return [sum[0] / outerRing.length, sum[1] / outerRing.length]
-}
-
-const createTextSprite = (text: string) => {
-  const canvas = document.createElement('canvas')
-  canvas.width = 160
-  canvas.height = 52
-  const context = canvas.getContext('2d')
-
-  if (context) {
-    context.font = '22px Microsoft YaHei, sans-serif'
-    context.textAlign = 'center'
-    context.textBaseline = 'middle'
-    context.shadowColor = '#18cfff'
-    context.shadowBlur = 10
-    context.fillStyle = '#d9f2ff'
-    context.fillText(text.replace(/省|市|自治区|壮族|回族|维吾尔/g, ''), 80, 26)
-  }
-
-  const texture = new THREE.CanvasTexture(canvas)
-  const material = new THREE.SpriteMaterial({
-    map: texture,
-    transparent: true,
-    opacity: 0.86,
-    depthWrite: false,
-  })
-  const sprite = new THREE.Sprite(material)
-  sprite.scale.set(36, 11, 1)
-  return sprite
-}
-
-const buildThreeProvince = (feature: ChinaFeature) => {
-  if (!chinaMapGroup) return
-
-  const name = feature.properties?.name ?? ''
-  const material = new THREE.MeshPhongMaterial({
-    color: '#0a3d7a',
-    emissive: '#0a5a9e',
-    emissiveIntensity: 0.18,
-    transparent: true,
-    opacity: 0.92,
-    shininess: 80,
-  })
-
-  getFeaturePolygons(feature).forEach((polygon) => {
-    const shape = createShapeFromPolygon(polygon)
-    if (!shape) return
-
-    const geometry = new THREE.ExtrudeGeometry(shape, { depth: 4, bevelEnabled: false })
-    geometry.computeVertexNormals()
-
-    const mesh = new THREE.Mesh(geometry, material)
-    mesh.position.z = -2
-    chinaMapGroup!.add(mesh)
-    polygon.forEach((ring) => addBorderLine(ring, chinaMapGroup!))
-  })
-
-  const center = getFeatureCenter(feature)
-  const value = mapDataByName.get(name) ?? 0
-  if (center && name && value > 0) {
-    const label = createTextSprite(name)
-    label.position.copy(projectLngLat(center, 16))
-    chinaMapGroup!.add(label)
-
-    const barHeight = Math.max(8, Math.log10(value + 1) * 14)
-    const barGeometry = new THREE.BoxGeometry(3.2, 3.2, barHeight)
-    const barMaterial = new THREE.MeshPhongMaterial({
-      color: '#28c5ff',
-      emissive: '#28c5ff',
-      emissiveIntensity: 0.35,
-      transparent: true,
-      opacity: 0.88,
-    })
-    const bar = new THREE.Mesh(barGeometry, barMaterial)
-    bar.position.copy(projectLngLat(center, barHeight / 2 + 6))
-    chinaMapGroup!.add(bar)
-    barMeshes.push(bar)
-
-    const glowGeometry = new THREE.BoxGeometry(4, 4, 1.2)
-    const glowMaterial = new THREE.MeshBasicMaterial({
-      color: '#28c5ff',
-      transparent: true,
-      opacity: 0.55,
-      blending: THREE.AdditiveBlending,
-    })
-    const glow = new THREE.Mesh(glowGeometry, glowMaterial)
-    glow.position.copy(projectLngLat(center, 6))
-    chinaMapGroup!.add(glow)
-  }
-}
-
-const initThreeChinaMap = () => {
-  const canvas = threeMapCanvasRef.value
-  if (!canvas) return
-
-  mapRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
-  mapRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-
-  mapScene = new THREE.Scene()
-  mapCamera = new THREE.PerspectiveCamera(36, 1, 1, 1400)
-  mapCamera.position.set(0, -42, 560)
-  mapCamera.lookAt(0, 0, 0)
-
-  mapScene.add(new THREE.AmbientLight('#6fdcff', 1.85))
-  const pointLight = new THREE.PointLight('#2aa7ff', 2.4, 900)
-  pointLight.position.set(-120, -160, 240)
-  mapScene.add(pointLight)
-
-  chinaMapGroup = new THREE.Group()
-  chinaMapGroup.rotation.x = -0.12
-  mapScene.add(chinaMapGroup)
-
-  chinaGeoJson.features.forEach(buildThreeProvince)
-  resizeThreeChinaMap()
-}
-
-const resizeThreeChinaMap = () => {
-  const canvas = threeMapCanvasRef.value
-  if (!canvas || !mapRenderer || !mapCamera) return
-
-  const rect = canvas.parentElement?.getBoundingClientRect() ?? canvas.getBoundingClientRect()
-  const width = Math.max(rect.width, 1)
-  const height = Math.max(rect.height, 1)
-  mapRenderer.setSize(width, height, false)
-  mapCamera.aspect = width / height
-  mapCamera.position.z = width < height ? 670 : 560
-  mapCamera.updateProjectionMatrix()
-}
-
-const updateThreeChinaMap = () => {
-  if (!mapRenderer || !mapScene || !mapCamera) return
-
-  const elapsed = performance.now() / 1000
-  if (chinaMapGroup) {
-    chinaMapGroup.rotation.z = Math.sin(elapsed * 0.42) * 0.008
-  }
-
-  barMeshes.forEach((bar, index) => {
-    const pulse = 1 + Math.sin(elapsed * 1.6 + index * 0.4) * 0.04
-    bar.scale.set(1, 1, pulse)
-  })
-
-  mapRenderer.render(mapScene, mapCamera)
-}
-
-const startMapAnimation = () => {
-  const animate = () => {
-    animationFrame = window.requestAnimationFrame(animate)
-    updateThreeChinaMap()
-  }
-  animate()
-}
-
 const handleResize = () => {
-  resizeThreeChinaMap()
   chartInstances.forEach((chart) => chart.resize())
 }
 
 onMounted(async () => {
-  document.documentElement.style.overflow = 'hidden'
-  document.body.style.overflow = 'hidden'
-  const app = document.getElementById('app')
-  if (app) app.style.overflow = 'hidden'
+  document.documentElement.classList.add('viz-page')
 
   await nextTick()
-  initThreeChinaMap()
-  startMapAnimation()
   initCharts()
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
-  document.documentElement.style.overflow = ''
-  document.body.style.overflow = ''
-  const app = document.getElementById('app')
-  if (app) app.style.overflow = ''
+  document.documentElement.classList.remove('viz-page')
 
   window.removeEventListener('resize', handleResize)
-  window.cancelAnimationFrame(animationFrame)
   chartInstances.forEach((chart) => chart.dispose())
-  mapRenderer?.dispose()
-  mapScene?.clear()
 })
 </script>
 
@@ -765,6 +552,7 @@ $text-muted: #80a8d8;
   flex-direction: column;
   box-sizing: border-box;
   width: 100%;
+  min-width: 1366px;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
@@ -774,7 +562,7 @@ $text-muted: #80a8d8;
   background-color: #020817;
   background-image: var(--bg-image);
   background-position: center center;
-  background-size: cover;
+  background-size: 100% 100%;
   background-repeat: no-repeat;
 }
 
@@ -830,7 +618,7 @@ $text-muted: #80a8d8;
 .viz-layout {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(240px, 24vw) 1fr minmax(240px, 24vw);
+  grid-template-columns: minmax(300px, 24vw) 1fr minmax(300px, 24vw);
   gap: 10px;
   min-height: 0;
 }
@@ -947,6 +735,77 @@ $text-muted: #80a8d8;
   display: grid;
   grid-template-rows: 28px 1fr;
   gap: 4px;
+}
+
+.panel--industry :deep(.panel-card__body) {
+  min-height: 0;
+}
+
+.industry-chart {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.chart--industry {
+  flex: 0 0 48%;
+  min-width: 0;
+  height: 100%;
+}
+
+.industry-legend {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+.industry-legend__item {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 6px;
+  row-gap: 2px;
+  align-items: center;
+}
+
+.industry-legend__dot {
+  grid-row: 1 / span 2;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dot-color);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--dot-color) 70%, transparent);
+}
+
+.industry-legend__name {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.industry-legend__percent {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.industry-legend__value {
+  grid-column: 2 / span 2;
+  color: rgba(186, 214, 240, 0.78);
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .tab-bar {
@@ -1096,65 +955,6 @@ $text-muted: #80a8d8;
   border: 1px solid rgba(42, 167, 255, 0.22);
   border-radius: 6px;
   background: rgba(2, 12, 36, 0.45);
-}
-
-.map-shell__title {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  z-index: 3;
-  transform: translateX(-50%);
-  color: #c5dcff;
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  text-shadow: 0 0 10px rgba(40, 197, 255, 0.5);
-}
-
-.three-map {
-  position: relative;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.map-shell__halo {
-  position: absolute;
-  inset: 10% 10% 8%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(0, 138, 255, 0.28), transparent 58%);
-  filter: blur(8px);
-  pointer-events: none;
-}
-
-.map-inset {
-  position: absolute;
-  right: 3%;
-  bottom: 6%;
-  z-index: 2;
-  width: 108px;
-  height: 88px;
-  padding: 6px;
-  border: 1px solid rgba(42, 167, 255, 0.42);
-  border-radius: 4px;
-  background: rgba(3, 18, 48, 0.72);
-  color: $text-muted;
-  font-size: 10px;
-  text-align: center;
-}
-
-.map-inset__dots {
-  position: relative;
-  height: 60px;
-}
-
-.map-inset__dots i {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #26cfff;
-  box-shadow: 0 0 8px #26cfff;
 }
 
 .category-nav {
@@ -1348,5 +1148,27 @@ $text-muted: #80a8d8;
   .metric-card__value {
     font-size: clamp(14px, 1.05vw, 18px);
   }
+}
+</style>
+
+<style lang="scss">
+html.viz-page {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+html.viz-page body {
+  min-width: 1366px;
+}
+
+html.viz-page #app {
+  width: auto;
+  min-width: 1366px;
+  max-width: none;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  text-align: initial;
+  border-inline: none;
 }
 </style>

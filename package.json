@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@antv/g6": "^5.1.1",
+    "d3": "^7.9.0",
     "echarts": "^6.1.0",
     "pdfh5": "^3.0.0",
     "pinia": "^3.0.4",
@@ -19,6 +20,8 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "^24.12.3",
     "@types/three": "^0.184.1",
     "@vitejs/plugin-vue": "^6.0.6",
