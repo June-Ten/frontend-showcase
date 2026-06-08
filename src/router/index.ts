@@ -17,6 +17,11 @@ const routes = [
     component: () => import('../views/equity/index.vue')
   },
   {
+    path: '/equity-compact-box',
+    name: 'EquityCompactBox',
+    component: () => import('../views/equityCompactBox/index.vue')
+  },
+  {
     path: '/sign',
     name: 'Sign',
     component: () => import('../views/sign/index.vue')

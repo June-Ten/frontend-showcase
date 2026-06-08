@@ -203,6 +203,13 @@ const projects = [
     href: '/equity',
   },
   {
+    title: '股权穿透图（CompactBox）',
+    description: '独立实现的 compactBox 上下方向布局版本',
+    tags: ['Vue3', 'G6', 'CompactBox'],
+    thumbType: 'equity' as const,
+    href: '/equity-compact-box',
+  },
+  {
     title: 'PDF 签署',
     description: 'PDF 预览与电子盖章，支持任意位置盖章与骑缝章',
     tags: ['Vue3', 'pdfh5', 'TypeScript'],
