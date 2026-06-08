@@ -196,13 +196,6 @@ const navItems = [
 
 const projects = [
   {
-    title: '股权穿透图',
-    description: '企业股权结构可视化，支持多层穿透与交互展开',
-    tags: ['Vue3', 'G6', 'Tree'],
-    thumbType: 'equity' as const,
-    href: '/equity',
-  },
-  {
     title: '股权穿透图（CompactBox）',
     description: '独立实现的 compactBox 上下方向布局版本',
     tags: ['Vue3', 'G6', 'CompactBox'],
