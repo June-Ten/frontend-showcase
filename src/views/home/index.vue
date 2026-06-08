@@ -93,7 +93,9 @@
               class="project-card__thumb"
               :class="{
                 'project-card__thumb--equity':
-                  project.thumbType === 'equity' || project.thumbType === 'sign',
+                  project.thumbType === 'equity' ||
+                  project.thumbType === 'sign' ||
+                  project.thumbType === 'viz',
               }"
               :style="project.thumbGradient ? { background: project.thumbGradient } : undefined"
             >
@@ -107,6 +109,12 @@
                 v-if="project.thumbType === 'sign'"
                 class="project-card__equity-cover"
                 :src="signCoverImg"
+                alt=""
+              />
+              <img
+                v-if="project.thumbType === 'viz'"
+                class="project-card__equity-cover"
+                :src="bigScreenCoverImg"
                 alt=""
               />
             </div>
@@ -132,6 +140,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Typed from 'typed.js'
 import AppIcon from '../../components/AppIcon.vue'
 import deskImg from '../../assets/img/desk.png'
+import bigScreenCoverImg from '../../assets/img/big_screen_cover.png'
 import equityCoverImg from '../../assets/img/equity_cover.png'
 import signCoverImg from '../../assets/img/sign_cover.png'
 
@@ -210,10 +219,11 @@ const projects = [
     href: '/sign',
   },
   {
-    title: '数据可视化平台',
-    description: '基于 Vue3 + ECharts 的数据可视化解决方案',
-    tags: ['Vue3', 'TypeScript', 'ECharts'],
-    thumbGradient: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 50%, #312e81 100%)',
+    title: '数据可视化大屏',
+    description: '智慧城市风格决策分析大屏，数据驱动·智慧未来',
+    tags: ['Vue3', 'ECharts', 'Three.js'],
+    thumbType: 'viz' as const,
+    href: '/visualization',
   },
   {
     title: '企业官网设计',
