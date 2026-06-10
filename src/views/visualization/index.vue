@@ -10,15 +10,23 @@
 
     <section class="viz-layout">
       <aside class="viz-column viz-column--left">
-        <PanelCard title="核心指标概览" class="panel--metrics">
-          <div class="metric-grid">
-            <div v-for="metric in coreMetrics" :key="metric.label" class="metric-card">
-              <span class="metric-card__icon" :style="{ color: metric.color }">
-                <AppIcon :name="metric.icon" :size="28" />
-              </span>
-              <p class="metric-card__label">{{ metric.label }}</p>
-              <strong class="metric-card__value">{{ metric.value }}</strong>
-              <span class="metric-card__delta">同比 <em>+{{ metric.yoy }}</em></span>
+        <PanelCard title="风险点排行榜" class="panel--risk-rank">
+          <div class="risk-rank">
+            <div class="risk-rank__viewport" @wheel.prevent="handleRiskRankWheel">
+              <div class="risk-rank__list" :style="{ transform: riskRankTransform }">
+                <div
+                  v-for="(province, index) in riskRankLoopItems"
+                  :key="`${province.name}-${index}`"
+                  class="risk-rank__item"
+                  :class="{ 'risk-rank__item--top': index % provinceRiskRanks.length < 3 }"
+                >
+                  <span class="risk-rank__index">
+                    {{ String((index % provinceRiskRanks.length) + 1).padStart(2, '0') }}
+                  </span>
+                  <span class="risk-rank__name">{{ province.name }}</span>
+                  <strong class="risk-rank__value">{{ province.value }}</strong>
+                </div>
+              </div>
             </div>
           </div>
         </PanelCard>
@@ -75,20 +83,6 @@
         <div class="map-shell">
           <China3dMap />
         </div>
-
-        <div class="category-nav">
-          <button
-            v-for="cat in mapCategories"
-            :key="cat.key"
-            type="button"
-            class="category-nav__item"
-            :class="{ 'category-nav__item--active': activeMapCategory === cat.key }"
-            @click="activeMapCategory = cat.key"
-          >
-            <span class="category-nav__icon">{{ cat.icon }}</span>
-            <span>{{ cat.label }}</span>
-          </button>
-        </div>
       </section>
 
       <aside class="viz-column viz-column--right">
@@ -144,10 +138,9 @@
 </template>
 
 <script setup lang="ts">
-import { defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
-import backgroundImg from '../../assets/img/bigscreen/background.png'
-import AppIcon from '../../components/AppIcon.vue'
+import backgroundImg from '../../assets/img/bigscreen/bigscreen_bg.png'
 import China3dMap from './China3dMap.vue'
 
 type ChartElement = HTMLElement | null
@@ -183,18 +176,103 @@ const industryChartRef = ref<ChartElement>(null)
 
 const activeTrendTab = ref<TrendTabKey>('gdp')
 const activeRankTab = ref<RankTabKey>('gdp')
-const activeMapCategory = ref('population')
 
 const chartInstances: echarts.ECharts[] = []
 
-const coreMetrics = [
-  { label: '常住人口(万人)', value: '140,967', yoy: '0.8%', icon: 'multiple-user', color: '#28c5ff' },
-  { label: 'GDP(亿元)', value: '1,260,582', yoy: '5.2%', icon: 'money', color: '#36e68f' },
-  { label: '工业增加值(亿元)', value: '312,890', yoy: '4.6%', icon: 'company', color: '#a978ff' },
-  { label: '社会消费品零售总额(亿元)', value: '478,306', yoy: '8.1%', icon: 'car', color: '#ff9d26' },
-  { label: '固定资产投资(亿元)', value: '512,305', yoy: '3.4%', icon: 'funds', color: '#ffd33c' },
-  { label: '一般公共预算收入(亿元)', value: '116,254', yoy: '6.8%', icon: 'money-ball', color: '#5b8cff' },
+const provinceRiskPointValues = [
+  { name: '广东省', value: 482 },
+  { name: '江苏省', value: 456 },
+  { name: '山东省', value: 431 },
+  { name: '浙江省', value: 418 },
+  { name: '河南省', value: 396 },
+  { name: '四川省', value: 382 },
+  { name: '河北省', value: 365 },
+  { name: '湖北省', value: 348 },
+  { name: '湖南省', value: 333 },
+  { name: '安徽省', value: 318 },
+  { name: '福建省', value: 304 },
+  { name: '辽宁省', value: 286 },
+  { name: '江西省', value: 271 },
+  { name: '陕西省', value: 256 },
+  { name: '云南省', value: 243 },
+  { name: '广西壮族自治区', value: 231 },
+  { name: '贵州省', value: 219 },
+  { name: '山西省', value: 207 },
+  { name: '重庆市', value: 196 },
+  { name: '黑龙江省', value: 184 },
+  { name: '内蒙古自治区', value: 173 },
+  { name: '吉林省', value: 161 },
+  { name: '新疆维吾尔自治区', value: 152 },
+  { name: '甘肃省', value: 141 },
+  { name: '海南省', value: 126 },
+  { name: '上海市', value: 118 },
+  { name: '北京市', value: 109 },
+  { name: '天津市', value: 96 },
+  { name: '宁夏回族自治区', value: 84 },
+  { name: '青海省', value: 72 },
+  { name: '西藏自治区', value: 58 },
+  { name: '台湾省', value: 44 },
+  { name: '香港特别行政区', value: 31 },
+  { name: '澳门特别行政区', value: 18 },
 ]
+
+const RISK_RANK_ITEM_STEP = 36
+const RISK_RANK_AUTO_INTERVAL = 2200
+const provinceRiskRanks = provinceRiskPointValues
+const riskRankLoopItems = [...provinceRiskRanks, ...provinceRiskRanks]
+const riskRankLoopHeight = provinceRiskRanks.length * RISK_RANK_ITEM_STEP
+const riskRankOffset = ref(0)
+
+let riskRankTargetOffset = 0
+let riskRankAnimationFrame = 0
+let riskRankTimer = 0
+let riskRankAutoPausedUntil = 0
+
+const normalizeRiskRankOffset = (offset: number) =>
+  ((offset % riskRankLoopHeight) + riskRankLoopHeight) % riskRankLoopHeight
+
+const riskRankTransform = computed(
+  () => `translateY(-${Math.round(normalizeRiskRankOffset(riskRankOffset.value))}px)`,
+)
+
+const nudgeRiskRank = (direction: 1 | -1) => {
+  riskRankTargetOffset += direction * RISK_RANK_ITEM_STEP
+}
+
+const handleRiskRankWheel = (event: WheelEvent) => {
+  riskRankAutoPausedUntil = performance.now() + 1200
+  nudgeRiskRank(event.deltaY >= 0 ? 1 : -1)
+}
+
+const animateRiskRank = () => {
+  const distance = riskRankTargetOffset - riskRankOffset.value
+  riskRankOffset.value += distance * 0.16
+
+  if (Math.abs(distance) < 0.04) {
+    riskRankOffset.value = riskRankTargetOffset
+  }
+
+  if (Math.abs(riskRankOffset.value) > riskRankLoopHeight * 4) {
+    const normalized = normalizeRiskRankOffset(riskRankOffset.value)
+    riskRankOffset.value = normalized
+    riskRankTargetOffset = normalized
+  }
+
+  riskRankAnimationFrame = window.requestAnimationFrame(animateRiskRank)
+}
+
+const startRiskRankScroll = () => {
+  animateRiskRank()
+  riskRankTimer = window.setInterval(() => {
+    if (performance.now() < riskRankAutoPausedUntil) return
+    nudgeRiskRank(1)
+  }, RISK_RANK_AUTO_INTERVAL)
+}
+
+const stopRiskRankScroll = () => {
+  window.cancelAnimationFrame(riskRankAnimationFrame)
+  window.clearInterval(riskRankTimer)
+}
 
 const trendTabs = [
   { key: 'gdp' as const, label: 'GDP' },
@@ -231,15 +309,6 @@ const adminStats = [
   { label: '地级行政区', value: '333', unit: '个', icon: '▣' },
   { label: '区县行政区', value: '2,852', unit: '个', icon: '▲' },
   { label: '乡镇街道', value: '41,293', unit: '个', icon: '◆' },
-]
-
-const mapCategories = [
-  { key: 'population', label: '人口分布', icon: '👥' },
-  { key: 'economy', label: '经济总量', icon: '◈' },
-  { key: 'industry', label: '产业分布', icon: '⚙' },
-  { key: 'transport', label: '交通网络', icon: '🚄' },
-  { key: 'environment', label: '生态环境', icon: '🌿' },
-  { key: 'education', label: '科教资源', icon: '📚' },
 ]
 
 const rankTabs = [
@@ -530,6 +599,7 @@ onMounted(async () => {
 
   await nextTick()
   initCharts()
+  startRiskRankScroll()
   window.addEventListener('resize', handleResize)
 })
 
@@ -537,6 +607,7 @@ onBeforeUnmount(() => {
   document.documentElement.classList.remove('viz-page')
 
   window.removeEventListener('resize', handleResize)
+  stopRiskRankScroll()
   chartInstances.forEach((chart) => chart.dispose())
 })
 </script>
@@ -639,7 +710,7 @@ $text-muted: #80a8d8;
 
 .viz-center {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   gap: 6px;
@@ -836,67 +907,77 @@ $text-muted: #80a8d8;
   }
 }
 
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+.risk-rank {
   height: 100%;
+  min-height: 0;
 }
 
-.metric-card {
-  display: flex;
-  flex-direction: column;
+.risk-rank__viewport {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  cursor: ns-resize;
+  mask-image: linear-gradient(transparent 0%, #000 8%, #000 92%, transparent 100%);
+}
+
+.risk-rank__list {
+  display: grid;
+  gap: 6px;
+}
+
+.risk-rank__item {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 56px;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
+  gap: 10px;
+  box-sizing: border-box;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(42, 167, 255, 0.1);
+  border-radius: 5px;
+  background: rgba(6, 25, 66, 0.46);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricprecision;
+}
+
+.risk-rank__item--top {
+  border-color: rgba(255, 156, 74, 0.26);
+  background:
+    linear-gradient(90deg, rgba(255, 126, 58, 0.16), rgba(6, 25, 66, 0.46) 58%),
+    rgba(6, 25, 66, 0.58);
+}
+
+.risk-rank__index {
+  color: rgba(128, 168, 216, 0.78);
+  font-family: DIN Alternate, Impact, sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.risk-rank__item--top .risk-rank__index {
+  color: #ffcf8a;
+  text-shadow: 0 0 4px rgba(255, 156, 74, 0.28);
+}
+
+.risk-rank__name {
   min-width: 0;
-  padding: 10px 6px;
-  border: 1px solid rgba(42, 167, 255, 0.22);
-  border-radius: 4px;
-  background: rgba(6, 25, 66, 0.72);
-  text-align: center;
+  overflow: hidden;
+  color: rgba(232, 246, 255, 0.92);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.metric-card__icon {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 2px;
-  filter: drop-shadow(0 0 12px currentColor);
-
-  :deep(path) {
-    fill: currentColor;
-  }
-}
-
-.metric-card__label {
-  margin: 0;
-  color: rgba(186, 214, 240, 0.88);
-  font-size: 11px;
-  line-height: 1.35;
-}
-
-.metric-card__value {
-  margin: 2px 0;
-  color: #ffffff;
-  font-size: clamp(17px, 1.35vw, 22px);
+.risk-rank__value {
+  color: #fff1d7;
+  font-family: Arial, 'Microsoft YaHei', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
   font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: 0.02em;
-}
-
-.metric-card__delta {
-  color: rgba(186, 214, 240, 0.75);
-  font-size: 11px;
-  line-height: 1.2;
-
-  em {
-    color: #66dfb1;
-    font-style: normal;
-    font-weight: 500;
-  }
+  text-align: right;
+  letter-spacing: 0;
+  text-shadow: none;
 }
 
 .chart {
@@ -955,52 +1036,6 @@ $text-muted: #80a8d8;
   border: 1px solid rgba(42, 167, 255, 0.22);
   border-radius: 6px;
   background: rgba(2, 12, 36, 0.45);
-}
-
-.category-nav {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 0 6px;
-}
-
-.category-nav__item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-width: 64px;
-  padding: 4px 8px;
-  border: none;
-  background: none;
-  color: #779bc8;
-  font-size: 11px;
-  cursor: pointer;
-  transition: color 0.2s;
-
-  &--active,
-  &:hover {
-    color: #28c5ff;
-  }
-
-  &--active .category-nav__icon {
-    border-color: rgba(40, 197, 255, 0.6);
-    box-shadow: 0 0 14px rgba(40, 197, 255, 0.35);
-  }
-}
-
-.category-nav__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid rgba(42, 167, 255, 0.25);
-  border-radius: 50%;
-  background: rgba(6, 25, 66, 0.6);
-  font-size: 16px;
 }
 
 .livelihood-grid {
@@ -1145,9 +1180,6 @@ $text-muted: #80a8d8;
     font-size: clamp(22px, 2vw, 32px);
   }
 
-  .metric-card__value {
-    font-size: clamp(14px, 1.05vw, 18px);
-  }
 }
 </style>
 

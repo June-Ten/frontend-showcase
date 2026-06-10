@@ -10,15 +10,16 @@ type MultiPolygon = Polygon[]
 
 const MAP_WIDTH = 640
 const MAP_HEIGHT = MAP_WIDTH * 0.78
-const EXTRUDE_HEIGHT = 11
+const EXTRUDE_HEIGHT = 4.5
 const RISE_DURATION = 1.6
 
-const COLOR_TOP_FACE = new THREE.Color('#cfeaff')
-const COLOR_TOP_GLOW = new THREE.Color('#3bd0ff')
-const COLOR_SIDE_TOP = new THREE.Color('#1fb6ff')
-const COLOR_SIDE_BOTTOM = new THREE.Color('#04132f')
-const COLOR_BORDER = new THREE.Color('#9fe9ff')
-const COLOR_ACCENT = new THREE.Color('#2ad4ff')
+// 深蓝宝石主体 + 克制的青色描边：板块本身偏暗，让边界线和顶面纹理成为亮点
+const COLOR_TOP_FACE = new THREE.Color('#2a5cab')
+const COLOR_TOP_GLOW = new THREE.Color('#5da8ff')
+const COLOR_SIDE_TOP = new THREE.Color('#4f9fe8')
+const COLOR_SIDE_BOTTOM = new THREE.Color('#050d24')
+const COLOR_BORDER = new THREE.Color('#8fe3ff')
+const COLOR_ACCENT = new THREE.Color('#1f8fde')
 
 function getPolygons(geometry: Geometry): Polygon[] {
   if (geometry.type === 'Polygon') return [geometry.coordinates as Polygon]
@@ -117,7 +118,7 @@ function createBorderLines(
         for (let i = 0; i < points.length - 1; i += 1) {
           const a = points[i]
           const b = points[i + 1]
-          positions.push(a.x, a.y, EXTRUDE_HEIGHT + 0.8, b.x, b.y, EXTRUDE_HEIGHT + 0.8)
+          positions.push(a.x, a.y, EXTRUDE_HEIGHT + 0.45, b.x, b.y, EXTRUDE_HEIGHT + 0.45)
         }
       }
     }
@@ -156,7 +157,10 @@ function createSideMaterial() {
       varying float vZ;
       void main() {
         float t = clamp(vZ / uDepth, 0.0, 1.0);
-        vec3 color = mix(uBottomColor, uTopColor, pow(t, 0.7));
+        vec3 color = mix(uBottomColor, uTopColor, pow(t, 1.6));
+        // 顶部边缘一条细窄的亮带，弱化大面积渐变的廉价感
+        float rim = smoothstep(0.82, 1.0, t);
+        color += uTopColor * rim * 0.55;
         gl_FragColor = vec4(color, 1.0);
       }
     `,
@@ -205,30 +209,6 @@ function createBaseDisc(radius: number) {
   const mesh = new THREE.Mesh(geometry, material)
   mesh.rotation.x = -Math.PI / 2
   return { mesh, material }
-}
-
-function createStarfield(count: number, radius: number) {
-  const positions = new Float32Array(count * 3)
-  for (let i = 0; i < count; i += 1) {
-    const r = radius * (0.8 + Math.random() * 0.7)
-    const theta = Math.random() * Math.PI * 2
-    const phi = Math.acos(2 * Math.random() - 1)
-    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta)
-    positions[i * 3 + 1] = Math.abs(r * Math.cos(phi)) * 0.5 + 60
-    positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta)
-  }
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-  const material = new THREE.PointsMaterial({
-    color: new THREE.Color('#7fd6ff'),
-    size: 2,
-    transparent: true,
-    opacity: 0.4,
-    sizeAttenuation: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  })
-  return new THREE.Points(geometry, material)
 }
 
 export type China3dMapController = {
@@ -294,9 +274,9 @@ export function createChina3dMap(
     map: terrainTexture,
     emissive: COLOR_TOP_GLOW,
     emissiveMap: terrainTexture,
-    emissiveIntensity: 0.55,
-    metalness: 0.18,
-    roughness: 0.68,
+    emissiveIntensity: 0.45,
+    metalness: 0.08,
+    roughness: 0.55,
   })
   const sideMaterial = createSideMaterial()
 
@@ -309,8 +289,8 @@ export function createChina3dMap(
       const geometry = new THREE.ExtrudeGeometry(shape, {
         depth: EXTRUDE_HEIGHT,
         bevelEnabled: true,
-        bevelThickness: 0.8,
-        bevelSize: 0.8,
+        bevelThickness: 0.3,
+        bevelSize: 0.3,
         bevelSegments: 1,
         UVGenerator: uvGenerator,
       })
@@ -337,14 +317,11 @@ export function createChina3dMap(
   baseDisc.position.y = -0.5
   pivot.add(baseDisc)
 
-  const starfield = createStarfield(360, footprint * 2.6)
-  scene.add(starfield)
-
-  scene.add(new THREE.AmbientLight(0x9ab6ff, 0.95))
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.05)
+  scene.add(new THREE.AmbientLight(0xaac4f0, 0.9))
+  const keyLight = new THREE.DirectionalLight(0xf2f7ff, 1.3)
   keyLight.position.set(footprint * 0.4, footprint * 0.9, footprint * 0.5)
   scene.add(keyLight)
-  const rimLight = new THREE.PointLight(0x2ad4ff, 1.2, footprint * 4)
+  const rimLight = new THREE.PointLight(0x3aa0ff, 0.9, footprint * 4)
   rimLight.position.set(-footprint * 0.5, footprint * 0.5, -footprint * 0.4)
   scene.add(rimLight)
 
@@ -403,9 +380,8 @@ export function createChina3dMap(
 
     pivot.position.y = Math.sin(elapsed * 0.8) * footprint * 0.006
 
-    topMaterial.emissiveIntensity = 0.5 + Math.sin(elapsed * 1.6) * 0.12
+    topMaterial.emissiveIntensity = 0.45 + Math.sin(elapsed * 1.6) * 0.07
     baseMaterial.uniforms.uTime.value = elapsed
-    starfield.rotation.y = elapsed * 0.02
 
     controls.update()
     renderer.render(scene, camera)
@@ -418,8 +394,6 @@ export function createChina3dMap(
     ;(borderLines.material as THREE.Material).dispose()
     baseDisc.geometry.dispose()
     baseMaterial.dispose()
-    starfield.geometry.dispose()
-    ;(starfield.material as THREE.Material).dispose()
     terrainTexture.dispose()
     topMaterial.dispose()
     sideMaterial.dispose()

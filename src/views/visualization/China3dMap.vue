@@ -62,17 +62,6 @@ defineExpose({ resize })
     <span class="map-stage__corner map-stage__corner--tr" aria-hidden="true" />
     <span class="map-stage__corner map-stage__corner--bl" aria-hidden="true" />
     <span class="map-stage__corner map-stage__corner--br" aria-hidden="true" />
-
-    <div class="map-stage__hud map-stage__hud--top" aria-hidden="true">
-      <span class="dot" />
-      <span class="label">GEO·MAPPING ONLINE</span>
-    </div>
-
-    <div class="map-stage__hud map-stage__hud--bottom" aria-hidden="true">
-      <span class="label">LAT 35.86 · LNG 104.19</span>
-      <span class="bar"><i /></span>
-      <span class="label">SCAN 100%</span>
-    </div>
   </div>
 </template>
 
@@ -133,77 +122,5 @@ defineExpose({ resize })
   bottom: 10px;
   right: 10px;
   border-width: 0 2px 2px 0;
-}
-
-.map-stage__hud {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: rgba(174, 246, 255, 0.78);
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-shadow: 0 0 8px rgba(42, 167, 255, 0.6);
-  pointer-events: none;
-}
-
-.map-stage__hud--top {
-  top: 14px;
-  left: 44px;
-}
-
-.map-stage__hud--bottom {
-  bottom: 14px;
-  right: 44px;
-}
-
-.map-stage__hud .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #3df0ff;
-  box-shadow: 0 0 10px #3df0ff;
-  animation: pulse 1.6s ease-in-out infinite;
-}
-
-.map-stage__hud .bar {
-  position: relative;
-  display: block;
-  width: 70px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(42, 167, 255, 0.18);
-  overflow: hidden;
-}
-
-.map-stage__hud .bar i {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 40%;
-  border-radius: 2px;
-  background: linear-gradient(90deg, transparent, #3df0ff, transparent);
-  animation: sweep 2.4s linear infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.4;
-    transform: scale(0.7);
-  }
-}
-
-@keyframes sweep {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(250%);
-  }
 }
 </style>
