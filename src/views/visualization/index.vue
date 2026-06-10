@@ -1,5 +1,8 @@
 <template>
-  <main class="viz-screen" :style="{ '--bg-image': `url(${backgroundImg})` }">
+  <main
+    class="viz-screen"
+    :style="{ '--bg-image': `url(${backgroundImg})`, '--title-bg-image': `url(${titleBg})` }"
+  >
     <header class="viz-header">
       <div class="viz-header__title-wrap">
         <span class="viz-header__wing viz-header__wing--left" aria-hidden="true" />
@@ -141,6 +144,7 @@
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import backgroundImg from '../../assets/img/bigscreen/bigscreen_bg.png'
+import titleBg from '../../assets/img/bigscreen/title_bg.png'
 import China3dMap from './China3dMap.vue'
 
 type ChartElement = HTMLElement | null
@@ -720,66 +724,26 @@ $text-muted: #80a8d8;
   position: relative;
   overflow: hidden;
   min-height: 0;
-  border: 1px solid $panel-border;
-  border-radius: 6px;
-  background:
-    linear-gradient(135deg, rgba(35, 123, 255, 0.14), transparent 42%),
-    $panel-bg;
-  box-shadow:
-    inset 0 0 22px rgba(12, 114, 255, 0.1),
-    0 0 18px rgba(4, 37, 95, 0.34);
-  backdrop-filter: blur(8px);
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    border-color: #2cc8ff;
-    border-style: solid;
-    pointer-events: none;
-  }
-
-  &::before {
-    top: -1px;
-    left: -1px;
-    border-width: 2px 0 0 2px;
-  }
-
-  &::after {
-    right: -1px;
-    bottom: -1px;
-    border-width: 0 2px 2px 0;
-  }
 }
 
 :deep(.panel-card__header) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 34px;
-  padding: 0 12px;
-  border-bottom: 1px solid rgba(42, 167, 255, 0.16);
-  background: linear-gradient(90deg, rgba(20, 80, 180, 0.22), transparent);
+  height: 38px;
+  padding: 0 14px;
+  background-image: var(--title-bg-image);
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: 100% 100%;
 
   h2 {
-    position: relative;
     margin: 0;
-    padding-left: 14px;
-    color: #e5f4ff;
+    padding-left: 12px;
+    color: #f2fbff;
     font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.04em;
-
-    &::before {
-      content: '◆';
-      position: absolute;
-      left: 0;
-      color: #28c5ff;
-      font-size: 10px;
-      text-shadow: 0 0 8px #28c5ff;
-    }
   }
 }
 
@@ -796,7 +760,7 @@ $text-muted: #80a8d8;
 }
 
 :deep(.panel-card__body) {
-  height: calc(100% - 34px);
+  height: calc(100% - 38px);
   min-height: 0;
   padding: 8px 10px;
 }
@@ -1000,9 +964,6 @@ $text-muted: #80a8d8;
   justify-content: center;
   gap: 8px;
   padding: 6px 10px;
-  border: 1px solid rgba(42, 167, 255, 0.18);
-  border-radius: 6px;
-  background: rgba(4, 18, 50, 0.55);
 }
 
 .center-stat__icon {
@@ -1033,9 +994,6 @@ $text-muted: #80a8d8;
 .map-shell {
   position: relative;
   min-height: 0;
-  border: 1px solid rgba(42, 167, 255, 0.22);
-  border-radius: 6px;
-  background: rgba(2, 12, 36, 0.45);
 }
 
 .livelihood-grid {
