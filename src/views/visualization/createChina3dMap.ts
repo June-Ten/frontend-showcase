@@ -16,8 +16,9 @@ const RISE_DURATION = 1.6
 // 深蓝宝石主体 + 克制的青色描边：板块本身偏暗，让边界线和顶面纹理成为亮点
 const COLOR_TOP_FACE = new THREE.Color('#2a5cab')
 const COLOR_TOP_GLOW = new THREE.Color('#5da8ff')
-const COLOR_SIDE_TOP = new THREE.Color('#4f9fe8')
-const COLOR_SIDE_BOTTOM = new THREE.Color('#050d24')
+const COLOR_SIDE_TOP = new THREE.Color('#2563b8')
+const COLOR_SIDE_BOTTOM = new THREE.Color('#071430')
+const COLOR_SIDE_RIM = new THREE.Color('#7fdfff')
 const COLOR_BORDER = new THREE.Color('#8fe3ff')
 const COLOR_ACCENT = new THREE.Color('#1f8fde')
 
@@ -25,6 +26,44 @@ function getPolygons(geometry: Geometry): Polygon[] {
   if (geometry.type === 'Polygon') return [geometry.coordinates as Polygon]
   if (geometry.type === 'MultiPolygon') return geometry.coordinates as MultiPolygon
   return []
+}
+
+// 鞋带公式（经纬度近似面积，仅用于大小比较）
+function ringArea(ring: Ring) {
+  let area = 0
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    area += ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]
+  }
+  return Math.abs(area / 2)
+}
+
+// 约 250km² 以下的零星岛屿不参与挤出，避免南海诸岛形成一片细碎厚块
+const MIN_ISLAND_AREA = 0.02
+
+function refineGeojson(geojson: FeatureCollection): FeatureCollection {
+  const features = geojson.features
+    .filter((feature) => {
+      if (!feature.geometry) return false
+      const props = feature.properties as { adcode?: string | number; name?: string } | null
+      // 剔除九段线等纯边界要素（无名称或 adcode 带 JD 后缀）
+      if (!props?.name) return false
+      return !String(props.adcode ?? '').includes('JD')
+    })
+    .map((feature) => {
+      const polygons = getPolygons(feature.geometry)
+      if (polygons.length <= 1) return feature
+
+      const areas = polygons.map((polygon) => ringArea(polygon[0] ?? []))
+      const largest = Math.max(...areas)
+      const kept = polygons.filter((_, i) => areas[i] === largest || areas[i] >= MIN_ISLAND_AREA)
+
+      return {
+        ...feature,
+        geometry: { type: 'MultiPolygon', coordinates: kept } as Geometry,
+      }
+    })
+
+  return { ...geojson, features }
 }
 
 function projectPoint(
@@ -129,7 +168,7 @@ function createBorderLines(
   const material = new THREE.LineBasicMaterial({
     color: COLOR_BORDER,
     transparent: true,
-    opacity: 0.95,
+    opacity: 0.8,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   })
@@ -141,6 +180,7 @@ function createSideMaterial() {
     uniforms: {
       uTopColor: { value: COLOR_SIDE_TOP },
       uBottomColor: { value: COLOR_SIDE_BOTTOM },
+      uRimColor: { value: COLOR_SIDE_RIM },
       uDepth: { value: EXTRUDE_HEIGHT },
     },
     vertexShader: /* glsl */ `
@@ -153,14 +193,16 @@ function createSideMaterial() {
     fragmentShader: /* glsl */ `
       uniform vec3 uTopColor;
       uniform vec3 uBottomColor;
+      uniform vec3 uRimColor;
       uniform float uDepth;
       varying float vZ;
       void main() {
         float t = clamp(vZ / uDepth, 0.0, 1.0);
-        vec3 color = mix(uBottomColor, uTopColor, pow(t, 1.6));
-        // 顶部边缘一条细窄的亮带，弱化大面积渐变的廉价感
-        float rim = smoothstep(0.82, 1.0, t);
-        color += uTopColor * rim * 0.55;
+        // 侧壁下 2/3 保持深色沉稳，亮度集中在贴近顶面的位置
+        vec3 color = mix(uBottomColor, uTopColor, pow(t, 2.4));
+        // 紧贴顶面的一条冰蓝细亮线，像被顶面光打亮的崖边
+        float rim = smoothstep(0.9, 1.0, t);
+        color = mix(color, uRimColor, rim * 0.65);
         gl_FragColor = vec4(color, 1.0);
       }
     `,
@@ -211,6 +253,108 @@ function createBaseDisc(radius: number) {
   return { mesh, material }
 }
 
+type CityMarker = { name: string; lon: number; lat: number; value: number }
+
+const CITY_MARKERS: CityMarker[] = [
+  { name: '北京', lon: 116.41, lat: 39.9, value: 100 },
+  { name: '上海', lon: 121.47, lat: 31.23, value: 86 },
+  { name: '广州', lon: 113.27, lat: 23.13, value: 78 },
+  { name: '成都', lon: 104.06, lat: 30.67, value: 64 },
+  { name: '武汉', lon: 114.31, lat: 30.52, value: 58 },
+  { name: '西安', lon: 108.94, lat: 34.34, value: 52 },
+  { name: '沈阳', lon: 123.43, lat: 41.8, value: 44 },
+  { name: '乌鲁木齐', lon: 87.62, lat: 43.83, value: 36 },
+]
+
+// 飞线：北京为枢纽向各城市辐射
+const FLY_ROUTES: [string, string][] = [
+  ['北京', '上海'],
+  ['北京', '广州'],
+  ['北京', '成都'],
+  ['北京', '武汉'],
+  ['北京', '西安'],
+  ['北京', '沈阳'],
+  ['北京', '乌鲁木齐'],
+]
+
+const COLOR_PILLAR = new THREE.Color('#5fd8ff')
+const COLOR_FLYLINE = new THREE.Color('#ffc861')
+
+function createPillarMaterial(height: number) {
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uColor: { value: COLOR_PILLAR },
+      uHeight: { value: height },
+    },
+    vertexShader: /* glsl */ `
+      uniform float uHeight;
+      varying float vT;
+      void main() {
+        vT = clamp(position.z / uHeight, 0.0, 1.0);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uColor;
+      varying float vT;
+      void main() {
+        // 底部实、顶部渐隐，根部混入一点白色提亮
+        vec3 color = mix(uColor, vec3(1.0), pow(1.0 - vT, 3.0) * 0.4);
+        float alpha = (1.0 - vT) * 0.75 + 0.1;
+        gl_FragColor = vec4(color, alpha);
+      }
+    `,
+  })
+}
+
+function createFlyLine(start: THREE.Vector3, end: THREE.Vector3) {
+  const mid = start.clone().add(end).multiplyScalar(0.5)
+  mid.z += start.distanceTo(end) * 0.32
+
+  const curve = new THREE.QuadraticBezierCurve3(start, mid, end)
+  const points = curve.getPoints(90)
+  const geometry = new THREE.BufferGeometry().setFromPoints(points)
+  const progress = new Float32Array(points.length)
+  for (let i = 0; i < points.length; i += 1) progress[i] = i / (points.length - 1)
+  geometry.setAttribute('aProgress', new THREE.BufferAttribute(progress, 1))
+
+  const material = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: COLOR_FLYLINE },
+    },
+    vertexShader: /* glsl */ `
+      attribute float aProgress;
+      varying float vProgress;
+      void main() {
+        vProgress = aProgress;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uTime;
+      uniform vec3 uColor;
+      varying float vProgress;
+      void main() {
+        // 常驻淡线 + 周期移动的光脉冲
+        float head = fract(vProgress - uTime * 0.22);
+        float pulse = pow(head, 22.0);
+        vec3 color = mix(uColor, vec3(1.0), pulse * 0.55);
+        float alpha = 0.1 + pulse * 0.95;
+        gl_FragColor = vec4(color, alpha);
+      }
+    `,
+  })
+
+  return new THREE.Line(geometry, material)
+}
+
 export type China3dMapController = {
   resize: () => void
   render: () => void
@@ -219,8 +363,11 @@ export type China3dMapController = {
 
 export function createChina3dMap(
   canvas: HTMLCanvasElement,
-  geojson: FeatureCollection,
+  rawGeojson: FeatureCollection,
 ): China3dMapController {
+  // 先做数据精修（去九段线、滤碎岛），再用精修后的范围做投影适配，
+  // 这样大陆主体能撑满画面，海南也只保留本岛
+  const geojson = refineGeojson(rawGeojson)
   const projection = geoMercator().fitSize([MAP_WIDTH, MAP_HEIGHT], geojson)
   const offsetX = MAP_WIDTH / 2
   const offsetY = MAP_HEIGHT / 2
@@ -281,21 +428,25 @@ export function createChina3dMap(
   const sideMaterial = createSideMaterial()
 
   const meshGeometries: THREE.BufferGeometry[] = []
+  const provinceMeshes: THREE.Mesh[] = []
   for (const feature of geojson.features) {
     if (!feature.geometry) continue
+    const provinceName = (feature.properties as { name?: string } | null)?.name ?? ''
     for (const polygon of getPolygons(feature.geometry)) {
       const shape = createShapeFromPolygon(polygon, projection, offsetX, offsetY)
       if (!shape) continue
       const geometry = new THREE.ExtrudeGeometry(shape, {
         depth: EXTRUDE_HEIGHT,
         bevelEnabled: true,
-        bevelThickness: 0.3,
-        bevelSize: 0.3,
+        bevelThickness: 0.22,
+        bevelSize: 0.22,
         bevelSegments: 1,
         UVGenerator: uvGenerator,
       })
       meshGeometries.push(geometry)
       const mesh = new THREE.Mesh(geometry, [topMaterial, sideMaterial])
+      mesh.userData.provinceName = provinceName
+      provinceMeshes.push(mesh)
       mapGroup.add(mesh)
     }
   }
@@ -316,6 +467,69 @@ export function createChina3dMap(
   const { mesh: baseDisc, material: baseMaterial } = createBaseDisc(footprint * 0.62)
   baseDisc.position.y = -0.5
   pivot.add(baseDisc)
+
+  // --- 城市柱子 / 光晕 / 飞线（挂在 mapGroup 内，跟随升起动画与旋转）---
+  const cityPositions = new Map<string, THREE.Vector3>()
+  for (const city of CITY_MARKERS) {
+    const point = projectPoint(projection, [city.lon, city.lat], offsetX, offsetY)
+    if (point) cityPositions.set(city.name, new THREE.Vector3(point.x, point.y, EXTRUDE_HEIGHT))
+  }
+
+  const overlayGeometries: THREE.BufferGeometry[] = []
+  const overlayMaterials: THREE.Material[] = []
+  const pillarMeshes: THREE.Mesh[] = []
+  const halos: { mesh: THREE.Mesh; phase: number }[] = []
+  const flyLineMaterials: THREE.ShaderMaterial[] = []
+
+  const maxPillarHeight = footprint * 0.075
+  const pillarWidth = footprint * 0.007
+
+  CITY_MARKERS.forEach((city, index) => {
+    const base = cityPositions.get(city.name)
+    if (!base) return
+
+    const height = maxPillarHeight * (0.35 + (city.value / 100) * 0.65)
+    const geometry = new THREE.BoxGeometry(pillarWidth, pillarWidth, height)
+    geometry.translate(0, 0, height / 2)
+    const material = createPillarMaterial(height)
+    const pillar = new THREE.Mesh(geometry, material)
+    pillar.position.copy(base)
+    pillar.userData.label = `${city.name} · ${city.value}`
+    overlayGeometries.push(geometry)
+    overlayMaterials.push(material)
+    pillarMeshes.push(pillar)
+    mapGroup.add(pillar)
+
+    const haloGeometry = new THREE.RingGeometry(pillarWidth * 1.6, pillarWidth * 2.8, 32)
+    const haloMaterial = new THREE.MeshBasicMaterial({
+      color: COLOR_PILLAR,
+      transparent: true,
+      opacity: 0.5,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+    const halo = new THREE.Mesh(haloGeometry, haloMaterial)
+    halo.position.set(base.x, base.y, EXTRUDE_HEIGHT + 0.12)
+    overlayGeometries.push(haloGeometry)
+    overlayMaterials.push(haloMaterial)
+    halos.push({ mesh: halo, phase: index * 0.8 })
+    mapGroup.add(halo)
+  })
+
+  for (const [from, to] of FLY_ROUTES) {
+    const start = cityPositions.get(from)
+    const end = cityPositions.get(to)
+    if (!start || !end) continue
+    const line = createFlyLine(
+      start.clone().setZ(EXTRUDE_HEIGHT + 0.4),
+      end.clone().setZ(EXTRUDE_HEIGHT + 0.4),
+    )
+    overlayGeometries.push(line.geometry)
+    overlayMaterials.push(line.material as THREE.Material)
+    flyLineMaterials.push(line.material as THREE.ShaderMaterial)
+    mapGroup.add(line)
+  }
 
   scene.add(new THREE.AmbientLight(0xaac4f0, 0.9))
   const keyLight = new THREE.DirectionalLight(0xf2f7ff, 1.3)
@@ -341,6 +555,90 @@ export function createChina3dMap(
   controls.autoRotate = true
   controls.autoRotateSpeed = 0.4
 
+  // --- 鼠标悬浮：高亮省份 + tooltip，悬浮期间暂停自动旋转 ---
+  const highlightMaterial = topMaterial.clone()
+  highlightMaterial.color = new THREE.Color('#3f7fd6')
+  highlightMaterial.emissiveIntensity = 0.9
+
+  const tooltip = document.createElement('div')
+  tooltip.style.cssText = [
+    'position:absolute',
+    'display:none',
+    'padding:5px 10px',
+    'border:1px solid rgba(63,184,255,0.45)',
+    'border-radius:4px',
+    'background:rgba(4,16,42,0.9)',
+    'color:#d9efff',
+    'font-size:12px',
+    'letter-spacing:0.05em',
+    'white-space:nowrap',
+    'pointer-events:none',
+    'z-index:10',
+  ].join(';')
+  canvas.parentElement?.appendChild(tooltip)
+
+  const raycaster = new THREE.Raycaster()
+  const pointer = new THREE.Vector2()
+  const interactiveMeshes = [...pillarMeshes, ...provinceMeshes]
+  let highlightedMeshes: THREE.Mesh[] = []
+
+  const clearHighlight = () => {
+    highlightedMeshes.forEach((mesh) => {
+      mesh.material = [topMaterial, sideMaterial]
+    })
+    highlightedMeshes = []
+  }
+
+  const handlePointerMove = (event: PointerEvent) => {
+    const rect = canvas.getBoundingClientRect()
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+    raycaster.setFromCamera(pointer, camera)
+
+    const hit = raycaster.intersectObjects(interactiveMeshes, false)[0]
+    clearHighlight()
+
+    if (!hit) {
+      tooltip.style.display = 'none'
+      canvas.style.cursor = ''
+      controls.autoRotate = true
+      return
+    }
+
+    const data = hit.object.userData as { label?: string; provinceName?: string }
+    const text = data.label ?? data.provinceName ?? ''
+
+    if (data.provinceName) {
+      highlightedMeshes = provinceMeshes.filter(
+        (mesh) => mesh.userData.provinceName === data.provinceName,
+      )
+      highlightedMeshes.forEach((mesh) => {
+        mesh.material = [highlightMaterial, sideMaterial]
+      })
+    }
+
+    if (text) {
+      tooltip.textContent = text
+      tooltip.style.display = 'block'
+      const parentRect = canvas.parentElement?.getBoundingClientRect() ?? rect
+      tooltip.style.left = `${event.clientX - parentRect.left + 14}px`
+      tooltip.style.top = `${event.clientY - parentRect.top - 10}px`
+    }
+
+    canvas.style.cursor = 'pointer'
+    controls.autoRotate = false
+  }
+
+  const handlePointerLeave = () => {
+    clearHighlight()
+    tooltip.style.display = 'none'
+    canvas.style.cursor = ''
+    controls.autoRotate = true
+  }
+
+  canvas.addEventListener('pointermove', handlePointerMove)
+  canvas.addEventListener('pointerleave', handlePointerLeave)
+
   // Fit the bounding sphere within the current viewport (both axes), then
   // keep the user's current orbit angle by only adjusting the distance.
   const frame = (aspect: number) => {
@@ -348,7 +646,8 @@ export function createChina3dMap(
     const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect)
     const fitH = boundingRadius / Math.sin(vFov / 2)
     const fitW = boundingRadius / Math.sin(hFov / 2)
-    const distance = Math.max(fitH, fitW) * 1.12
+    // 包围球本身偏保守（对角线半径），用 <1 的系数让地图撑满视口
+    const distance = Math.max(fitH, fitW) * 0.86
 
     const dir = camera.position.clone().sub(controls.target).normalize()
     camera.position.copy(controls.target).addScaledVector(dir, distance)
@@ -381,15 +680,31 @@ export function createChina3dMap(
     pivot.position.y = Math.sin(elapsed * 0.8) * footprint * 0.006
 
     topMaterial.emissiveIntensity = 0.45 + Math.sin(elapsed * 1.6) * 0.07
+    highlightMaterial.emissiveIntensity = topMaterial.emissiveIntensity + 0.4
     baseMaterial.uniforms.uTime.value = elapsed
+
+    flyLineMaterials.forEach((material) => {
+      material.uniforms.uTime.value = elapsed
+    })
+    halos.forEach(({ mesh, phase }) => {
+      const pulse = 1 + Math.sin(elapsed * 2.2 + phase) * 0.22
+      mesh.scale.setScalar(pulse)
+      ;(mesh.material as THREE.MeshBasicMaterial).opacity = 0.32 + Math.sin(elapsed * 2.2 + phase) * 0.18
+    })
 
     controls.update()
     renderer.render(scene, camera)
   }
 
   const dispose = () => {
+    canvas.removeEventListener('pointermove', handlePointerMove)
+    canvas.removeEventListener('pointerleave', handlePointerLeave)
+    tooltip.remove()
     controls.dispose()
     meshGeometries.forEach((geometry) => geometry.dispose())
+    overlayGeometries.forEach((geometry) => geometry.dispose())
+    overlayMaterials.forEach((material) => material.dispose())
+    highlightMaterial.dispose()
     borderLines.geometry.dispose()
     ;(borderLines.material as THREE.Material).dispose()
     baseDisc.geometry.dispose()

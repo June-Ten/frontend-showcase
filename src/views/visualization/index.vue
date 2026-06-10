@@ -1,8 +1,5 @@
 <template>
-  <main
-    class="viz-screen"
-    :style="{ '--bg-image': `url(${backgroundImg})`, '--title-bg-image': `url(${titleBg})` }"
-  >
+  <main class="viz-screen" :style="{ '--bg-image': `url(${backgroundImg})` }">
     <header class="viz-header">
       <div class="viz-header__title-wrap">
         <span class="viz-header__wing viz-header__wing--left" aria-hidden="true" />
@@ -15,17 +12,19 @@
       <aside class="viz-column viz-column--left">
         <PanelCard title="风险点排行榜" class="panel--risk-rank">
           <div class="risk-rank">
-            <div class="risk-rank__viewport" @wheel.prevent="handleRiskRankWheel">
+            <div
+              ref="riskRankViewportRef"
+              class="risk-rank__viewport"
+              @wheel.prevent="handleRiskRankWheel"
+            >
               <div class="risk-rank__list" :style="{ transform: riskRankTransform }">
                 <div
-                  v-for="(province, index) in riskRankLoopItems"
-                  :key="`${province.name}-${index}`"
+                  v-for="(province, index) in provinceRiskRanks"
+                  :key="province.name"
                   class="risk-rank__item"
-                  :class="{ 'risk-rank__item--top': index % provinceRiskRanks.length < 3 }"
+                  :class="{ 'risk-rank__item--top': index < 3 }"
                 >
-                  <span class="risk-rank__index">
-                    {{ String((index % provinceRiskRanks.length) + 1).padStart(2, '0') }}
-                  </span>
+                  <span class="risk-rank__index">{{ String(index + 1).padStart(2, '0') }}</span>
                   <span class="risk-rank__name">{{ province.name }}</span>
                   <strong class="risk-rank__value">{{ province.value }}</strong>
                 </div>
@@ -50,26 +49,6 @@
           <div ref="trendChartRef" class="chart chart--trend" />
         </PanelCard>
 
-        <PanelCard title="产业结构分析" class="panel--industry">
-          <div class="industry-chart">
-            <div ref="industryChartRef" class="chart chart--industry" />
-            <ul class="industry-legend">
-              <li
-                v-for="item in industryStructure"
-                :key="item.name"
-                class="industry-legend__item"
-              >
-                <span
-                  class="industry-legend__dot"
-                  :style="{ '--dot-color': item.legendColor }"
-                />
-                <span class="industry-legend__name">{{ item.name }}</span>
-                <span class="industry-legend__percent">{{ item.percent }}</span>
-                <span class="industry-legend__value">{{ item.value.toLocaleString() }} 亿元</span>
-              </li>
-            </ul>
-          </div>
-        </PanelCard>
       </aside>
 
       <section class="viz-center">
@@ -105,34 +84,24 @@
           <div ref="rankChartRef" class="chart chart--rank" />
         </PanelCard>
 
-        <PanelCard title="民生保障" class="panel--livelihood">
-          <div class="livelihood-grid">
-            <div v-for="item in livelihoodMetrics" :key="item.label" class="livelihood-card">
-              <div class="livelihood-card__ring" :style="{ '--progress': item.progress }">
-                <span class="livelihood-card__icon">{{ item.icon }}</span>
-              </div>
-              <p class="livelihood-card__label">{{ item.label }}</p>
-              <strong>{{ item.value }}</strong>
-              <span class="livelihood-card__delta">同比 ↑ {{ item.yoy }}</span>
-            </div>
-          </div>
-        </PanelCard>
-
-        <PanelCard title="预警提示" show-more class="panel--alerts">
-          <div class="alert-list">
-            <div
-              v-for="alert in alerts"
-              :key="alert.id"
-              class="alert-item"
-              :class="`alert-item--${alert.level}`"
-            >
-              <span class="alert-item__icon">▲</span>
-              <div class="alert-item__body">
-                <strong>{{ alert.title }}</strong>
-                <span>{{ alert.region }}</span>
-              </div>
-              <time>{{ alert.time }}</time>
-            </div>
+        <PanelCard title="产业结构分析" class="panel--industry">
+          <div class="industry-chart">
+            <div ref="industryChartRef" class="chart chart--industry" />
+            <ul class="industry-legend">
+              <li
+                v-for="item in industryStructure"
+                :key="item.name"
+                class="industry-legend__item"
+              >
+                <span
+                  class="industry-legend__dot"
+                  :style="{ '--dot-color': item.legendColor }"
+                />
+                <span class="industry-legend__name">{{ item.name }}</span>
+                <span class="industry-legend__percent">{{ item.percent }}</span>
+                <span class="industry-legend__value">{{ item.value.toLocaleString() }} 亿元</span>
+              </li>
+            </ul>
           </div>
         </PanelCard>
       </aside>
@@ -144,7 +113,6 @@
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import backgroundImg from '../../assets/img/bigscreen/bigscreen_bg.png'
-import titleBg from '../../assets/img/bigscreen/title_bg.png'
 import China3dMap from './China3dMap.vue'
 
 type ChartElement = HTMLElement | null
@@ -223,8 +191,8 @@ const provinceRiskPointValues = [
 const RISK_RANK_ITEM_STEP = 36
 const RISK_RANK_AUTO_INTERVAL = 2200
 const provinceRiskRanks = provinceRiskPointValues
-const riskRankLoopItems = [...provinceRiskRanks, ...provinceRiskRanks]
-const riskRankLoopHeight = provinceRiskRanks.length * RISK_RANK_ITEM_STEP
+const riskRankListHeight = provinceRiskRanks.length * RISK_RANK_ITEM_STEP - 6
+const riskRankViewportRef = ref<HTMLElement | null>(null)
 const riskRankOffset = ref(0)
 
 let riskRankTargetOffset = 0
@@ -232,15 +200,18 @@ let riskRankAnimationFrame = 0
 let riskRankTimer = 0
 let riskRankAutoPausedUntil = 0
 
-const normalizeRiskRankOffset = (offset: number) =>
-  ((offset % riskRankLoopHeight) + riskRankLoopHeight) % riskRankLoopHeight
+const getMaxRiskRankOffset = () => {
+  const viewportHeight = riskRankViewportRef.value?.clientHeight ?? 0
+  return Math.max(riskRankListHeight - viewportHeight, 0)
+}
 
 const riskRankTransform = computed(
-  () => `translateY(-${Math.round(normalizeRiskRankOffset(riskRankOffset.value))}px)`,
+  () => `translateY(-${Math.round(riskRankOffset.value)}px)`,
 )
 
 const nudgeRiskRank = (direction: 1 | -1) => {
-  riskRankTargetOffset += direction * RISK_RANK_ITEM_STEP
+  const next = riskRankTargetOffset + direction * RISK_RANK_ITEM_STEP
+  riskRankTargetOffset = Math.min(Math.max(next, 0), getMaxRiskRankOffset())
 }
 
 const handleRiskRankWheel = (event: WheelEvent) => {
@@ -256,12 +227,6 @@ const animateRiskRank = () => {
     riskRankOffset.value = riskRankTargetOffset
   }
 
-  if (Math.abs(riskRankOffset.value) > riskRankLoopHeight * 4) {
-    const normalized = normalizeRiskRankOffset(riskRankOffset.value)
-    riskRankOffset.value = normalized
-    riskRankTargetOffset = normalized
-  }
-
   riskRankAnimationFrame = window.requestAnimationFrame(animateRiskRank)
 }
 
@@ -269,6 +234,10 @@ const startRiskRankScroll = () => {
   animateRiskRank()
   riskRankTimer = window.setInterval(() => {
     if (performance.now() < riskRankAutoPausedUntil) return
+    if (riskRankTargetOffset >= getMaxRiskRankOffset()) {
+      riskRankTargetOffset = 0
+      return
+    }
     nudgeRiskRank(1)
   }, RISK_RANK_AUTO_INTERVAL)
 }
@@ -328,21 +297,40 @@ const regionRankData = [
   { name: '河南省', gdp: 59126, growth: 4.8 },
   { name: '四川省', gdp: 56749, growth: 5.1 },
   { name: '湖北省', gdp: 55803, growth: 5.3 },
+  { name: '福建省', gdp: 54355, growth: 4.9 },
+  { name: '湖南省', gdp: 50048, growth: 4.6 },
+  { name: '安徽省', gdp: 47051, growth: 5.4 },
+  { name: '上海市', gdp: 47219, growth: 4.7 },
+  { name: '河北省', gdp: 43944, growth: 4.4 },
+  { name: '北京市', gdp: 43761, growth: 5.0 },
+  { name: '陕西省', gdp: 33786, growth: 4.3 },
+  { name: '江西省', gdp: 32200, growth: 4.5 },
+  { name: '重庆市', gdp: 30146, growth: 5.7 },
+  { name: '辽宁省', gdp: 30209, growth: 4.1 },
+  { name: '云南省', gdp: 30021, growth: 3.9 },
+  { name: '广西壮族自治区', gdp: 27202, growth: 3.8 },
+  { name: '山西省', gdp: 25698, growth: 3.4 },
+  { name: '内蒙古自治区', gdp: 24627, growth: 6.1 },
+  { name: '贵州省', gdp: 20913, growth: 4.2 },
+  { name: '新疆维吾尔自治区', gdp: 19126, growth: 6.4 },
+  { name: '天津市', gdp: 16737, growth: 4.0 },
+  { name: '黑龙江省', gdp: 15884, growth: 3.2 },
+  { name: '吉林省', gdp: 13531, growth: 5.9 },
+  { name: '甘肃省', gdp: 11864, growth: 6.0 },
+  { name: '海南省', gdp: 7551, growth: 6.3 },
+  { name: '宁夏回族自治区', gdp: 5315, growth: 5.6 },
+  { name: '青海省', gdp: 3799, growth: 4.8 },
+  { name: '西藏自治区', gdp: 2393, growth: 8.2 },
 ]
 
-const livelihoodMetrics = [
-  { label: '城镇就业(万人)', value: '7,512', yoy: '2.1%', icon: '💼', progress: 0.72 },
-  { label: '居民收入(元)', value: '31,890', yoy: '5.8%', icon: '💵', progress: 0.68 },
-  { label: '养老保险(万人)', value: '109,873', yoy: '3.2%', icon: '🏥', progress: 0.85 },
-  { label: '医疗保险(万人)', value: '135,892', yoy: '2.8%', icon: '❤', progress: 0.91 },
-]
+const RANK_WINDOW_SIZE = 8
+const RANK_CAROUSEL_INTERVAL = 2400
 
-const alerts = [
-  { id: 1, level: 'red', title: '森林火险预警', region: '内蒙古', time: '2分钟前' },
-  { id: 2, level: 'orange', title: '暴雨预警', region: '广东', time: '15分钟前' },
-  { id: 3, level: 'yellow', title: '高温预警', region: '四川', time: '32分钟前' },
-  { id: 4, level: 'blue', title: '大风预警', region: '渤海', time: '1小时前' },
-]
+let rankCarouselStart = 0
+let rankCarouselTimer = 0
+
+const getSortedRankData = (key: RankTabKey) =>
+  [...regionRankData].sort((a, b) => (key === 'gdp' ? b.gdp - a.gdp : b.growth - a.growth))
 
 const industryStructure = [
   {
@@ -457,11 +445,12 @@ const getTrendOption = (key: TrendTabKey): echarts.EChartsOption => {
 
 const getRankOption = (key: RankTabKey): echarts.EChartsOption => {
   const isGdp = key === 'gdp'
-  const values = regionRankData.map((item) => (isGdp ? item.gdp : item.growth))
+  const sorted = getSortedRankData(key)
+  const values = sorted.map((item) => (isGdp ? item.gdp : item.growth))
   const max = Math.max(...values) * 1.08
 
   return {
-    grid: { top: 4, right: 72, bottom: 8, left: 58 },
+    grid: { top: 4, right: 76, bottom: 8, left: 58 },
     xAxis: {
       type: 'value',
       max,
@@ -470,16 +459,33 @@ const getRankOption = (key: RankTabKey): echarts.EChartsOption => {
     yAxis: {
       type: 'category',
       inverse: true,
-      data: regionRankData.map((item) => item.name),
-      axisLabel: { color: '#d5eaff', fontSize: 11 },
+      data: sorted.map((item) => item.name),
+      axisLabel: {
+        color: '#d5eaff',
+        fontSize: 11,
+        formatter: (name: string) => (name.length > 5 ? `${name.slice(0, 5)}…` : name),
+      },
       axisLine: { show: false },
       axisTick: { show: false },
     },
+    // 轮播窗口：只显示 RANK_WINDOW_SIZE 行，由定时器平移 startValue/endValue
+    dataZoom: [
+      {
+        type: 'inside',
+        yAxisIndex: 0,
+        startValue: rankCarouselStart,
+        endValue: rankCarouselStart + RANK_WINDOW_SIZE - 1,
+        zoomLock: true,
+        zoomOnMouseWheel: false,
+        moveOnMouseWheel: false,
+        moveOnMouseMove: false,
+      },
+    ],
     series: [
       {
         type: 'bar',
         barWidth: 10,
-        data: regionRankData.map((item, index) => ({
+        data: sorted.map((item, index) => ({
           value: isGdp ? item.gdp : item.growth,
           itemStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
@@ -497,7 +503,7 @@ const getRankOption = (key: RankTabKey): echarts.EChartsOption => {
           formatter: (params: echarts.DefaultLabelFormatterCallbackParams) => {
             const dataIndex = params.dataIndex ?? 0
             const value = typeof params.value === 'number' ? params.value : 0
-            const item = regionRankData[dataIndex]
+            const item = sorted[dataIndex]
             if (!item) return ''
             return isGdp
               ? `${value.toLocaleString()}  +${item.growth}%`
@@ -590,8 +596,32 @@ const switchTrendTab = (key: TrendTabKey) => {
 
 const switchRankTab = (key: RankTabKey) => {
   activeRankTab.value = key
+  rankCarouselStart = 0
   const chart = chartInstances.find((instance) => instance.getDom() === rankChartRef.value)
   chart?.setOption(getRankOption(key), true)
+}
+
+const startRankCarousel = () => {
+  rankCarouselTimer = window.setInterval(() => {
+    const chart = chartInstances.find((instance) => instance.getDom() === rankChartRef.value)
+    if (!chart) return
+
+    rankCarouselStart =
+      rankCarouselStart + RANK_WINDOW_SIZE >= regionRankData.length ? 0 : rankCarouselStart + 1
+
+    chart.setOption({
+      dataZoom: [
+        {
+          startValue: rankCarouselStart,
+          endValue: rankCarouselStart + RANK_WINDOW_SIZE - 1,
+        },
+      ],
+    })
+  }, RANK_CAROUSEL_INTERVAL)
+}
+
+const stopRankCarousel = () => {
+  window.clearInterval(rankCarouselTimer)
 }
 
 const handleResize = () => {
@@ -604,6 +634,7 @@ onMounted(async () => {
   await nextTick()
   initCharts()
   startRiskRankScroll()
+  startRankCarousel()
   window.addEventListener('resize', handleResize)
 })
 
@@ -612,6 +643,7 @@ onBeforeUnmount(() => {
 
   window.removeEventListener('resize', handleResize)
   stopRiskRankScroll()
+  stopRankCarousel()
   chartInstances.forEach((chart) => chart.dispose())
 })
 </script>
@@ -705,11 +737,11 @@ $text-muted: #80a8d8;
 }
 
 .viz-column--left {
-  grid-template-rows: 1.15fr 0.95fr 1fr;
+  grid-template-rows: 1.2fr 1fr;
 }
 
 .viz-column--right {
-  grid-template-rows: 1fr 0.95fr 0.85fr;
+  grid-template-rows: 1.2fr 1fr;
 }
 
 .viz-center {
@@ -727,23 +759,52 @@ $text-muted: #80a8d8;
 }
 
 :deep(.panel-card__header) {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 38px;
-  padding: 0 14px;
-  background-image: var(--title-bg-image);
-  background-repeat: no-repeat;
-  background-position: left center;
-  background-size: 100% 100%;
+  padding: 0 14px 0 16px;
+  background: linear-gradient(90deg, rgba(32, 110, 224, 0.28), rgba(32, 110, 224, 0.04) 62%, transparent);
+
+  // 底部渐隐分隔线：靠左一段更亮，向右淡出
+  &::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      rgba(69, 198, 255, 0.9),
+      rgba(48, 140, 255, 0.35) 38%,
+      transparent 92%
+    );
+  }
 
   h2 {
+    position: relative;
     margin: 0;
     padding-left: 12px;
     color: #f2fbff;
     font-size: 14px;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
+
+    // 左侧发光竖条
+    &::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 4px;
+      height: 16px;
+      border-radius: 2px;
+      background: linear-gradient(180deg, #45d7ff, #1b6dff);
+      box-shadow: 0 0 8px rgba(69, 199, 255, 0.7);
+      transform: translateY(-50%);
+    }
   }
 }
 
@@ -994,139 +1055,6 @@ $text-muted: #80a8d8;
 .map-shell {
   position: relative;
   min-height: 0;
-}
-
-.livelihood-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  height: 100%;
-}
-
-.livelihood-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 6px;
-  border: 1px solid rgba(42, 167, 255, 0.1);
-  border-radius: 6px;
-  background: rgba(6, 25, 66, 0.5);
-}
-
-.livelihood-card__ring {
-  --progress: 0.7;
-  position: relative;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: conic-gradient(#28c5ff calc(var(--progress) * 360deg), rgba(42, 167, 255, 0.12) 0);
-  box-shadow: 0 0 16px rgba(40, 197, 255, 0.2);
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 6px;
-    border-radius: 50%;
-    background: rgba(4, 18, 50, 0.92);
-  }
-}
-
-.livelihood-card__icon {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-  font-size: 18px;
-  pointer-events: none;
-}
-
-.livelihood-card__label {
-  margin: 0;
-  color: $text-muted;
-  font-size: 10px;
-  text-align: center;
-}
-
-.livelihood-card strong {
-  color: #f2fbff;
-  font-size: 15px;
-}
-
-.livelihood-card__delta {
-  color: #66dfb1;
-  font-size: 10px;
-}
-
-.alert-list {
-  display: grid;
-  gap: 6px;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.alert-item {
-  display: grid;
-  grid-template-columns: 20px 1fr auto;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: 4px;
-  background: rgba(6, 25, 66, 0.55);
-  font-size: 12px;
-
-  &--red {
-    border-left: 3px solid #ff3d62;
-    .alert-item__icon { color: #ff3d62; }
-  }
-
-  &--orange {
-    border-left: 3px solid #ff9c26;
-    .alert-item__icon { color: #ff9c26; }
-  }
-
-  &--yellow {
-    border-left: 3px solid #ffd33c;
-    .alert-item__icon { color: #ffd33c; }
-  }
-
-  &--blue {
-    border-left: 3px solid #28c5ff;
-    .alert-item__icon { color: #28c5ff; }
-  }
-}
-
-.alert-item__icon {
-  font-size: 10px;
-  text-shadow: 0 0 8px currentColor;
-}
-
-.alert-item__body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-
-  strong {
-    color: #e5f4ff;
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  span {
-    color: $text-muted;
-    font-size: 10px;
-  }
-}
-
-.alert-item time {
-  color: #6689b5;
-  font-size: 10px;
-  white-space: nowrap;
 }
 
 @media (max-width: 1180px) {
