@@ -52,16 +52,15 @@
       </aside>
 
       <section class="viz-center">
-        <div class="center-stats">
-          <div v-for="item in adminStats" :key="item.label" class="center-stat">
-            <span class="center-stat__icon">{{ item.icon }}</span>
-            <div>
-              <strong>{{ item.value }}<small>{{ item.unit }}</small></strong>
-              <p>{{ item.label }}</p>
-            </div>
+        <div class="kpi-strip">
+          <div v-for="(item, index) in kpiItems" :key="item.label" class="kpi-card">
+            <span class="kpi-card__label">{{ item.label }}</span>
+            <span class="kpi-card__value">
+              {{ formatKpiValue(kpiDisplayValues[index] ?? 0, item.decimals) }}
+              <i class="kpi-card__unit">{{ item.unit }}</i>
+            </span>
           </div>
         </div>
-
         <div class="map-shell">
           <China3dMap />
         </div>
@@ -141,6 +140,43 @@ const PanelCard = defineComponent({
       ])
   },
 })
+
+const kpiItems = [
+  { label: '国内生产总值', value: 1260582, unit: '亿元', decimals: 0 },
+  { label: 'GDP 同比增速', value: 5.2, unit: '%', decimals: 1 },
+  { label: '风险点总数', value: 8254, unit: '个', decimals: 0 },
+  { label: '监测覆盖率', value: 98.6, unit: '%', decimals: 1 },
+] as const
+
+const KPI_COUNT_DURATION = 1400
+const kpiDisplayValues = ref<number[]>(kpiItems.map(() => 0))
+let kpiAnimationFrame = 0
+
+const formatKpiValue = (value: number, decimals: number) =>
+  value.toLocaleString('zh-CN', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })
+
+const startKpiCountUp = () => {
+  const startTime = performance.now()
+
+  const step = (now: number) => {
+    const progress = Math.min((now - startTime) / KPI_COUNT_DURATION, 1)
+    const eased = 1 - Math.pow(1 - progress, 3)
+    kpiDisplayValues.value = kpiItems.map((item) => item.value * eased)
+
+    if (progress < 1) {
+      kpiAnimationFrame = window.requestAnimationFrame(step)
+    }
+  }
+
+  kpiAnimationFrame = window.requestAnimationFrame(step)
+}
+
+const stopKpiCountUp = () => {
+  window.cancelAnimationFrame(kpiAnimationFrame)
+}
 
 const trendChartRef = ref<ChartElement>(null)
 const rankChartRef = ref<ChartElement>(null)
@@ -276,13 +312,6 @@ const trendData: Record<TrendTabKey, { months: string[]; values: number[]; unit:
     unit: '亿元',
   },
 }
-
-const adminStats = [
-  { label: '省级行政区', value: '34', unit: '个', icon: '♟' },
-  { label: '地级行政区', value: '333', unit: '个', icon: '▣' },
-  { label: '区县行政区', value: '2,852', unit: '个', icon: '▲' },
-  { label: '乡镇街道', value: '41,293', unit: '个', icon: '◆' },
-]
 
 const rankTabs = [
   { key: 'gdp' as const, label: 'GDP(亿元)' },
@@ -633,6 +662,7 @@ onMounted(async () => {
 
   await nextTick()
   initCharts()
+  startKpiCountUp()
   startRiskRankScroll()
   startRankCarousel()
   window.addEventListener('resize', handleResize)
@@ -642,6 +672,7 @@ onBeforeUnmount(() => {
   document.documentElement.classList.remove('viz-page')
 
   window.removeEventListener('resize', handleResize)
+  stopKpiCountUp()
   stopRiskRankScroll()
   stopRankCarousel()
   chartInstances.forEach((chart) => chart.dispose())
@@ -745,11 +776,83 @@ $text-muted: #80a8d8;
 }
 
 .viz-center {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
-  gap: 6px;
+}
+
+.kpi-strip {
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.kpi-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  box-sizing: border-box;
+  height: 64px;
+  overflow: hidden;
+  padding: 0 16px;
+  border: 1px solid rgba(42, 167, 255, 0.22);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgba(32, 110, 224, 0.18), rgba(6, 25, 66, 0.55));
+
+  // 顶部高亮线
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(69, 199, 255, 0.85), transparent);
+  }
+
+  // 左下角斜向流光
+  &::after {
+    content: '';
+    position: absolute;
+    right: -30%;
+    bottom: -70%;
+    width: 70%;
+    height: 140%;
+    background: radial-gradient(ellipse at center, rgba(40, 197, 255, 0.14), transparent 70%);
+    pointer-events: none;
+  }
+}
+
+.kpi-card__label {
+  color: $text-muted;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.kpi-card__value {
+  color: #ffffff;
+  font-family: DIN Alternate, Arial, 'Microsoft YaHei', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 0 14px rgba(69, 178, 255, 0.55);
+}
+
+.kpi-card__unit {
+  margin-left: 2px;
+  color: rgba(186, 214, 240, 0.78);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
 }
 
 :deep(.panel-card) {
@@ -1011,49 +1114,9 @@ $text-muted: #80a8d8;
   min-height: 0;
 }
 
-.center-stats {
-  display: grid;
-  flex-shrink: 0;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  padding: 0 6px;
-}
-
-.center-stat {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 6px 10px;
-}
-
-.center-stat__icon {
-  color: #28c5ff;
-  font-size: 22px;
-  text-shadow: 0 0 14px #28c5ff;
-}
-
-.center-stat strong {
-  color: #f1fbff;
-  font-size: clamp(20px, 1.8vw, 28px);
-  line-height: 1.1;
-
-  small {
-    margin-left: 2px;
-    color: $text-muted;
-    font-size: 12px;
-    font-weight: 400;
-  }
-}
-
-.center-stat p {
-  margin: 2px 0 0;
-  color: $text-muted;
-  font-size: 11px;
-}
-
 .map-shell {
   position: relative;
+  height: 100%;
   min-height: 0;
 }
 
