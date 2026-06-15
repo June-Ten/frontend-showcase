@@ -205,6 +205,13 @@ const navItems = [
 
 const projects = [
   {
+    title: '股权穿透图（D3.js）',
+    description: '基于 D3.js + Dagre 的 SVG 股权穿透图，样式对齐 G6 版',
+    tags: ['Vue3', 'D3.js', 'Dagre'],
+    thumbType: 'equity' as const,
+    href: '/equity-d3',
+  },
+  {
     title: '股权穿透图（CompactBox）',
     description: '独立实现的 compactBox 上下方向布局版本',
     tags: ['Vue3', 'G6', 'CompactBox'],
