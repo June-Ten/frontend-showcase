@@ -22,12 +22,14 @@
 
     <section class="equity-chart-panel">
       <div class="equity-chart-panel__toolbar">
+        <button type="button" class="action-btn" @click="handleExpandAll">全部展开</button>
+        <button type="button" class="action-btn" @click="handleCollapseAll">全部收起</button>
         <button type="button" class="action-btn" @click="handleReset">重置视图</button>
       </div>
       <div ref="chartRef" class="equity-chart" />
       <footer class="equity-chart-panel__footer">
         <p class="equity-chart-panel__note">
-          注：穿透范围：直接或间接持股比例 ≥ 5% 的自然人股东
+          注：穿透范围：直接或间接持股比例 ≥ 5% 的自然人股东；点击节点顶部/底部 +/- 可折叠股东链或对外投资
         </p>
         <div class="equity-chart-panel__legend">
           <span v-for="item in legendItems" :key="item.label" class="legend-item">
@@ -50,7 +52,12 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppIcon from '../../components/AppIcon.vue'
-import { createEquityGraph, resetEquityGraph } from './createEquityGraph'
+import {
+  collapseAllEquityNodes,
+  createEquityGraph,
+  expandAllEquityNodes,
+  resetEquityGraph,
+} from './createEquityGraph'
 import { companyInfo, equityGraphData } from './equityData'
 import type { Graph } from '@antv/g6'
 
@@ -78,6 +85,16 @@ function initChart() {
 async function handleReset() {
   if (!graph) return
   await resetEquityGraph(graph, equityGraphData)
+}
+
+async function handleExpandAll() {
+  if (!graph) return
+  await expandAllEquityNodes(graph)
+}
+
+async function handleCollapseAll() {
+  if (!graph) return
+  await collapseAllEquityNodes(graph)
 }
 
 function handleResize() {
@@ -224,6 +241,7 @@ $accent: #1a5fb4;
   display: flex;
   flex-shrink: 0;
   justify-content: flex-end;
+  gap: 8px;
   margin-bottom: 8px;
 }
 
