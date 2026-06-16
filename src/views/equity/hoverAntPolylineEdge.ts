@@ -1,8 +1,24 @@
-import { ExtensionCategory, Polyline, register, type Graph as G6Graph } from '@antv/g6'
+import { ExtensionCategory, Polyline, register, type Graph as G6Graph, type Point } from '@antv/g6'
 
 const ANT_LINE_DASH = [6, 4] as const
 const ANT_LINE_OFFSET = 20
 const ANT_LINE_DURATION = 450
+
+let visibilityAnimating = false
+
+/** 折叠/展开动画期间跳过边的样式重算，避免路径跳动 */
+export function setEquityVisibilityAnimating(value: boolean) {
+  visibilityAnimating = value
+}
+
+/** 仅依赖端点坐标的折线控制点，折叠时随端点平滑收拢 */
+function stableEquityControlPoints(sourcePoint: Point, targetPoint: Point): Point[] {
+  const midY = (sourcePoint[1] + targetPoint[1]) / 2
+  return [
+    [sourcePoint[0], midY],
+    [targetPoint[0], midY],
+  ]
+}
 
 interface CancellableAnimation {
   cancel?: () => void
@@ -32,6 +48,11 @@ function forEachHoverAntPolyline(graph: G6Graph, fn: (edge: HoverAntPolyline) =>
 
 class HoverAntPolyline extends Polyline {
   private antAnimation: CancellableAnimation | null = null
+
+  getControlPoints(attributes: Parameters<Polyline['getControlPoints']>[0]) {
+    const [sourcePoint, targetPoint] = this.getEndpoints(attributes, false)
+    return stableEquityControlPoints(sourcePoint, targetPoint)
+  }
 
   private isActive() {
     return this.context.graph.getElementState(this.id).includes('active')
@@ -76,14 +97,15 @@ class HoverAntPolyline extends Polyline {
 
   render(...args: Parameters<Polyline['render']>) {
     super.render(...args)
-    this.syncAntAnimation()
+    if (!visibilityAnimating) this.syncAntAnimation()
   }
 
   onCreate() {
-    this.syncAntAnimation()
+    if (!visibilityAnimating) this.syncAntAnimation()
   }
 
   onUpdate() {
+    if (visibilityAnimating) return
     this.syncAntAnimation()
   }
 

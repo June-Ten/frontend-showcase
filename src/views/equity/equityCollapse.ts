@@ -82,3 +82,28 @@ export function hasUpstreamBranch(topo: EquityGraphTopology, nodeId: string) {
 export function hasDownstreamBranch(topo: EquityGraphTopology, nodeId: string) {
   return (topo.investmentChildren.get(nodeId)?.length ?? 0) > 0
 }
+
+/** 折叠时节点应收拢到的相邻节点：股东链向下、投资链向上 */
+export function findCollapseAnchorId(
+  data: EquityGraphData,
+  nodeId: string,
+  hidden: Set<string>,
+): string {
+  const shareholderChildren = data.edges
+    .filter((edge) => edge.data?.relation === 'shareholder' && edge.source === nodeId)
+    .map((edge) => edge.target)
+
+  const visibleShareholderChild = shareholderChildren.find((id) => !hidden.has(id))
+  if (visibleShareholderChild) return visibleShareholderChild
+  if (shareholderChildren.length > 0) return shareholderChildren[0]!
+
+  const investmentParents = data.edges
+    .filter((edge) => edge.data?.relation === 'investment' && edge.target === nodeId)
+    .map((edge) => edge.source)
+
+  const visibleInvestmentParent = investmentParents.find((id) => !hidden.has(id))
+  if (visibleInvestmentParent) return visibleInvestmentParent
+  if (investmentParents.length > 0) return investmentParents[0]!
+
+  return nodeId
+}

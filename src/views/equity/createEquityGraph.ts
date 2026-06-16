@@ -1,12 +1,18 @@
-import { Graph, type Graph as G6Graph, type IPointerEvent, type NodeBadgeStyleProps } from '@antv/g6'
+import { Graph, type AnimationOptions, type Graph as G6Graph, type IPointerEvent, type NodeBadgeStyleProps } from '@antv/g6'
 import type { EquityGraphData, EquityNodeType } from './equityData'
 import {
   buildEquityTopology,
   computeEquityHiddenNodes,
+  findCollapseAnchorId,
   hasDownstreamBranch,
   hasUpstreamBranch,
 } from './equityCollapse'
-import { registerHoverAntPolyline, stopAllHoverAntPolylineEdges, syncAllHoverAntPolylineEdges } from './hoverAntPolylineEdge'
+import {
+  registerHoverAntPolyline,
+  setEquityVisibilityAnimating,
+  stopAllHoverAntPolylineEdges,
+  syncAllHoverAntPolylineEdges,
+} from './hoverAntPolylineEdge'
 
 registerHoverAntPolyline()
 
@@ -35,6 +41,30 @@ const TARGET_STYLE = {
   fill: '#1a5fb4',
   stroke: '#1a5fb4',
   labelFill: '#ffffff',
+}
+
+/** 折叠/展开：淡出 + 向父/子节点收拢，展开时反向展开 */
+const VISIBILITY_ANIM_DURATION = 280
+const NODE_VISIBILITY_ANIMATION: Record<string, AnimationOptions[]> = {
+  show: [
+    { fields: ['opacity'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-out' },
+    { fields: ['x', 'y'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-out' },
+  ],
+  hide: [
+    { fields: ['opacity'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-in' },
+    { fields: ['x', 'y'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-in' },
+  ],
+}
+
+const EDGE_VISIBILITY_ANIMATION: Record<string, AnimationOptions[]> = {
+  show: [
+    { fields: ['opacity'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-out' },
+    { fields: ['sourceNode', 'targetNode'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-out' },
+  ],
+  hide: [
+    { fields: ['opacity'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-in' },
+    { fields: ['sourceNode', 'targetNode'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-in' },
+  ],
 }
 
 function nodeStyle(type?: EquityNodeType) {
@@ -175,37 +205,122 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
   const topo = buildEquityTopology(data)
   const collapsedUpstream = new Set<string>()
   const collapsedDownstream = new Set<string>()
+  let previousHidden = new Set<string>()
+  let collapseBadgeVersion = 0
+  const nodePositions = new Map<string, { x: number; y: number }>()
+  const nodeIdSet = new Set(data.nodes.map((node) => node.id))
 
   let graph!: G6Graph
 
-  async function applyVisibility() {
-    const hidden = computeEquityHiddenNodes(topo, collapsedUpstream, collapsedDownstream)
-    const visibility: Record<string, 'visible' | 'hidden'> = {}
+  function getNodePosition(id: string) {
+    const style = graph.getNodeData(id).style as { x?: number; y?: number } | undefined
+    return { x: style?.x ?? 0, y: style?.y ?? 0 }
+  }
+
+  function rememberNodePosition(id: string) {
+    if (!nodePositions.has(id)) {
+      nodePositions.set(id, getNodePosition(id))
+    }
+  }
+
+  function buildPositionUpdatesForVisibility(
+    visibilityChanges: Record<string, 'visible' | 'hidden'>,
+    hidden: Set<string>,
+  ) {
+    const updates: { id: string; style: { x: number; y: number } }[] = []
+
+    for (const [id, visibility] of Object.entries(visibilityChanges)) {
+      if (!nodeIdSet.has(id)) continue
+
+      if (visibility === 'hidden') {
+        rememberNodePosition(id)
+        const anchorId = findCollapseAnchorId(data, id, hidden)
+        updates.push({ id, style: getNodePosition(anchorId) })
+      } else {
+        const original = nodePositions.get(id)
+        if (original) updates.push({ id, style: original })
+      }
+    }
+
+    return updates
+  }
+
+  function buildVisibilityChanges(hidden: Set<string>) {
+    const changes: Record<string, 'visible' | 'hidden'> = {}
 
     for (const node of data.nodes) {
-      visibility[node.id] = hidden.has(node.id) ? 'hidden' : 'visible'
-    }
-    for (const edge of data.edges) {
-      const id = String(edge.id)
-      visibility[id] =
-        hidden.has(edge.source) || hidden.has(edge.target) ? 'hidden' : 'visible'
+      const nextHidden = hidden.has(node.id)
+      const prevHidden = previousHidden.has(node.id)
+      if (nextHidden !== prevHidden) {
+        changes[node.id] = nextHidden ? 'hidden' : 'visible'
+      }
     }
 
-    stopAllHoverAntPolylineEdges(graph)
-    // 勿调用 graph.draw()：全量绘制会重算样式并把 visibility 重置为 visible
-    await graph.setElementVisibility(visibility, false)
+    for (const edge of data.edges) {
+      const id = String(edge.id)
+      const nextHidden = hidden.has(edge.source) || hidden.has(edge.target)
+      const prevHidden = previousHidden.has(edge.source) || previousHidden.has(edge.target)
+      if (nextHidden !== prevHidden) {
+        changes[id] = nextHidden ? 'hidden' : 'visible'
+      }
+    }
+
+    previousHidden = new Set(hidden)
+    return changes
+  }
+
+  async function refreshCollapseBadges(nodeIds: string[]) {
+    const visibleIds = nodeIds.filter(
+      (id) => hasCollapsibleBranch(id, topo) && !previousHidden.has(id),
+    )
+    if (visibleIds.length === 0) return
+
+    collapseBadgeVersion += 1
+    graph.updateNodeData(
+      visibleIds.map((id) => ({
+        id,
+        style: { collapseBadgeVersion },
+      })),
+    )
+    await graph.draw()
+  }
+
+  async function applyVisibility(badgeNodeIds?: Iterable<string>) {
+    const hidden = computeEquityHiddenNodes(topo, collapsedUpstream, collapsedDownstream)
+    const visibilityChanges = buildVisibilityChanges(hidden)
+
+    if (Object.keys(visibilityChanges).length > 0) {
+      stopAllHoverAntPolylineEdges(graph)
+      const positionUpdates = buildPositionUpdatesForVisibility(visibilityChanges, hidden)
+      if (positionUpdates.length > 0) {
+        graph.updateNodeData(positionUpdates)
+      }
+      setEquityVisibilityAnimating(true)
+      try {
+        await graph.setElementVisibility(visibilityChanges, true)
+      } finally {
+        setEquityVisibilityAnimating(false)
+      }
+    }
+
+    const badgeIds = badgeNodeIds
+      ? [...badgeNodeIds]
+      : data.nodes
+          .filter((node) => hasCollapsibleBranch(node.id, topo))
+          .map((node) => node.id)
+    await refreshCollapseBadges(badgeIds)
   }
 
   async function toggleUpstream(nodeId: string) {
     if (collapsedUpstream.has(nodeId)) collapsedUpstream.delete(nodeId)
     else collapsedUpstream.add(nodeId)
-    await applyVisibility()
+    await applyVisibility([nodeId])
   }
 
   async function toggleDownstream(nodeId: string) {
     if (collapsedDownstream.has(nodeId)) collapsedDownstream.delete(nodeId)
     else collapsedDownstream.add(nodeId)
-    await applyVisibility()
+    await applyVisibility([nodeId])
   }
 
   function handleBadgeClick(event: IPointerEvent) {
@@ -267,16 +382,19 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
         labelTextAlign: 'center',
         cursor: (datum) => (hasCollapsibleBranch(String(datum.id), topo) ? 'pointer' : 'default'),
         badge: (datum) => hasCollapsibleBranch(String(datum.id), topo),
-        badges: (datum) =>
-          createCollapseBadges(
+        badges: (datum) => {
+          void collapseBadgeVersion
+          return createCollapseBadges(
             String(datum.id),
             getNodeData(datum).type,
             topo,
             collapsedUpstream,
             collapsedDownstream,
-          ),
+          )
+        },
         ports: [{ placement: 'top' }, { placement: 'bottom' }],
       },
+      animation: NODE_VISIBILITY_ANIMATION,
       state: {
         active: {
           halo: false,
@@ -286,11 +404,11 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
     edge: {
       type: 'hover-ant-polyline',
       style: {
-        router: { type: 'orth' },
         lineWidth: 1,
         stroke: '#99ADD1',
         endArrow: true,
       },
+      animation: EDGE_VISIBILITY_ANIMATION,
       state: {
         active: {
           halo: false,
