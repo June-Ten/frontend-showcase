@@ -8,6 +8,7 @@ import {
   hasUpstreamBranch,
 } from './equityCollapse'
 import {
+  isEquityVisibilityAnimating,
   registerHoverAntPolyline,
   setEquityVisibilityAnimating,
   stopAllHoverAntPolylineEdges,
@@ -198,6 +199,24 @@ function hasCollapsibleBranch(
   return hasUpstreamBranch(topo, nodeId) || hasDownstreamBranch(topo, nodeId)
 }
 
+function clearActiveHoverStates(graph: G6Graph) {
+  const updates: Record<string, string[]> = {}
+
+  for (const datum of graph.getElementDataByState('node', 'active')) {
+    const id = String(datum.id)
+    updates[id] = graph.getElementState(id).filter((state) => state !== 'active')
+  }
+
+  for (const datum of graph.getElementDataByState('edge', 'active')) {
+    const id = String(datum.id)
+    updates[id] = graph.getElementState(id).filter((state) => state !== 'active')
+  }
+
+  if (Object.keys(updates).length > 0) {
+    void graph.setElementState(updates, false)
+  }
+}
+
 export function createEquityGraph(container: HTMLElement, data: EquityGraphData): G6Graph {
   const width = container.clientWidth || 800
   const height = container.clientHeight || 600
@@ -290,6 +309,7 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
     const visibilityChanges = buildVisibilityChanges(hidden)
 
     if (Object.keys(visibilityChanges).length > 0) {
+      clearActiveHoverStates(graph)
       stopAllHoverAntPolylineEdges(graph)
       const positionUpdates = buildPositionUpdatesForVisibility(visibilityChanges, hidden)
       if (positionUpdates.length > 0) {
@@ -300,6 +320,8 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
         await graph.setElementVisibility(visibilityChanges, true)
       } finally {
         setEquityVisibilityAnimating(false)
+        stopAllHoverAntPolylineEdges(graph)
+        requestAnimationFrame(() => syncAllHoverAntPolylineEdges(graph))
       }
     }
 
@@ -414,7 +436,6 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
           halo: false,
           lineWidth: 2,
           stroke: '#1a5fb4',
-          lineDash: [6, 4],
         },
       },
     },
@@ -428,9 +449,11 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
         type: 'hover-activate',
         degree: 1,
         onHover: () => {
+          if (isEquityVisibilityAnimating()) return
           requestAnimationFrame(() => syncAllHoverAntPolylineEdges(graph))
         },
         onHoverEnd: () => {
+          if (isEquityVisibilityAnimating()) return
           stopAllHoverAntPolylineEdges(graph)
           requestAnimationFrame(() => syncAllHoverAntPolylineEdges(graph))
         },

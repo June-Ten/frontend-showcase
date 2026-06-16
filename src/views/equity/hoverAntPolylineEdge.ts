@@ -11,6 +11,10 @@ export function setEquityVisibilityAnimating(value: boolean) {
   visibilityAnimating = value
 }
 
+export function isEquityVisibilityAnimating() {
+  return visibilityAnimating
+}
+
 /** 仅依赖端点坐标的折线控制点，折叠时随端点平滑收拢 */
 function stableEquityControlPoints(sourcePoint: Point, targetPoint: Point): Point[] {
   const midY = (sourcePoint[1] + targetPoint[1]) / 2
@@ -91,21 +95,24 @@ class HoverAntPolyline extends Polyline {
   }
 
   syncAntAnimation() {
+    if (visibilityAnimating) {
+      this.stopAntAnimation()
+      return
+    }
     if (this.isActive()) this.startAntAnimation()
     else this.stopAntAnimation()
   }
 
   render(...args: Parameters<Polyline['render']>) {
     super.render(...args)
-    if (!visibilityAnimating) this.syncAntAnimation()
+    this.syncAntAnimation()
   }
 
   onCreate() {
-    if (!visibilityAnimating) this.syncAntAnimation()
+    this.syncAntAnimation()
   }
 
   onUpdate() {
-    if (visibilityAnimating) return
     this.syncAntAnimation()
   }
 
