@@ -30,6 +30,11 @@ const routes = [
     path: '/sign',
     name: 'Sign',
     component: () => import('../views/sign/index.vue')
+  },
+  {
+    path: '/g6-test',
+    name: 'G6Test',
+    component: () => import('../views/g6Test/index.vue')
   }
 ]
 
