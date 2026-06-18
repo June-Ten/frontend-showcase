@@ -6,7 +6,7 @@ const NODE_WIDTH = 200
 const NODE_HEIGHT = 56
 const BADGE_RADIUS = 11
 const PADDING = { top: 48, right: 56, bottom: 48, left: 56 }
-const TRANSITION_MS = 280
+const TRANSITION_MS = 400
 
 const OFFSHORE_STYLE = {
   fill: '#f5f9fd',
@@ -46,6 +46,12 @@ interface LayoutResult {
   nodes: LayoutNode[]
   edges: LayoutEdge[]
   nodeById: Map<string, LayoutNode>
+}
+
+interface ToggleContext {
+  nodeId: string
+  direction: 'upstream' | 'downstream'
+  expanding: boolean
 }
 
 export interface D3EquityGraph {
@@ -195,6 +201,46 @@ function orthPath(
   return { path, labelX: (sx + tx) / 2, labelY: midY }
 }
 
+function nodeTransform(node: LayoutNode): string {
+  return `translate(${node.x - NODE_WIDTH / 2},${node.y - NODE_HEIGHT / 2})`
+}
+
+function collapsedPathAt(node: LayoutNode): string {
+  const x = node.x
+  const y = node.y
+  return `M${x},${y} L${x},${y} L${x},${y} L${x},${y}`
+}
+
+function snapshotNodePositions(
+  selection: d3.Selection<SVGGElement, LayoutNode, SVGGElement, unknown>,
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>()
+  selection.each(function (d) {
+    const transform = d3.select(this).attr('transform') ?? ''
+    const match = transform.match(/translate\(([-\d.]+),([-\d.]+)\)/)
+    if (match) {
+      positions.set(d.id, {
+        x: parseFloat(match[1]) + NODE_WIDTH / 2,
+        y: parseFloat(match[2]) + NODE_HEIGHT / 2,
+      })
+    } else {
+      positions.set(d.id, { x: d.x, y: d.y })
+    }
+  })
+  return positions
+}
+
+function snapshotEdgePaths(
+  selection: d3.Selection<SVGGElement, LayoutEdge, SVGGElement, unknown>,
+): Map<string, string> {
+  const paths = new Map<string, string>()
+  selection.each(function (d) {
+    const pathD = d3.select(this).select('path.equity-d3-edge__line').attr('d')
+    if (pathD) paths.set(d.id, pathD)
+  })
+  return paths
+}
+
 function getBounds(nodes: LayoutNode[]) {
   if (nodes.length === 0) {
     return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 1, height: 1 }
@@ -261,6 +307,7 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
   let layout: LayoutResult = fullLayout
   const bounds = getBounds(fullLayout.nodes)
   let isAnimating = false
+  let lastToggle: ToggleContext | null = null
 
   function stopAntAnimation(edgeId: string) {
     const frameId = antAnimations.get(edgeId)
@@ -352,7 +399,7 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
   }
 
   function appendBadge(
-    group: d3.Selection<SVGGElement, LayoutNode, SVGGElement, unknown>,
+    group: d3.Selection<SVGGElement, LayoutNode, null, undefined>,
     placement: 'top' | 'bottom',
     collapsed: boolean,
     isTarget: boolean,
@@ -390,7 +437,7 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
 
   function updateBadges() {
     nodeLayer.selectAll<SVGGElement, LayoutNode>('g.equity-d3-node').each(function (d) {
-      const group = d3.select(this)
+      const group = d3.select<SVGGElement, LayoutNode>(this)
       group.selectAll('.equity-d3-badge').remove()
 
       const isTarget = d.data.type === 'target'
@@ -408,12 +455,55 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
     })
   }
 
-  function renderEdges(animate: boolean) {
+  function renderEdges(
+    animate: boolean,
+    prevPaths: Map<string, string>,
+    toggle: ToggleContext | null,
+  ) {
+    const duration = animate ? TRANSITION_MS : 0
+    const ease = d3.easeCubicInOut
+    const anchor = toggle ? fullLayout.nodeById.get(toggle.nodeId) : undefined
+
     const edgeSelection = edgeLayer
       .selectAll<SVGGElement, LayoutEdge>('g.equity-d3-edge')
       .data(layout.edges, (d) => d.id)
 
-    edgeSelection.exit().transition().duration(animate ? TRANSITION_MS : 0).style('opacity', 0).remove()
+    edgeSelection.exit().each(function (this: SVGGElement) {
+      const d = d3.select(this).datum() as LayoutEdge
+      const group = d3.select(this)
+      const pathEl = group.select<SVGPathElement>('path.equity-d3-edge__line')
+      const label = group.select<SVGTextElement>('text.equity-d3-edge__label')
+      const currentPath = pathEl.attr('d') ?? prevPaths.get(d.id) ?? ''
+      const endPath = anchor && toggle && !toggle.expanding ? collapsedPathAt(anchor) : currentPath
+
+      group
+        .transition()
+        .duration(duration)
+        .ease(ease)
+        .style('opacity', 0)
+        .remove()
+
+      if (animate && currentPath) {
+        pathEl
+          .transition()
+          .duration(duration)
+          .ease(ease)
+          .attrTween('d', () => d3.interpolateString(currentPath, endPath))
+
+        const startX = parseFloat(label.attr('x') || '0')
+        const startY = parseFloat(label.attr('y') || '0')
+        if (anchor && toggle && !toggle.expanding) {
+          label
+            .transition()
+            .duration(duration)
+            .ease(ease)
+            .attr('x', anchor.x)
+            .attr('y', anchor.y)
+        } else if (startX || startY) {
+          label.transition().duration(duration).ease(ease).attr('x', startX).attr('y', startY)
+        }
+      }
+    })
 
     const edgeEnter = edgeSelection
       .enter()
@@ -422,7 +512,7 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
       .attr('data-edge-id', (d) => d.id)
       .style('opacity', 0)
 
-    edgeEnter.each(function (d) {
+    edgeEnter.each(function (this: SVGGElement) {
       const group = d3.select(this)
       group.append('path').attr('class', 'equity-d3-edge__line')
       group.append('text').attr('class', 'equity-d3-edge__label')
@@ -437,51 +527,114 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
 
       const { path, labelX, labelY } = orthPath(source, target)
       const group = d3.select(this)
-      const pathEl = group.select('path.equity-d3-edge__line')
-      const label = group.select('text.equity-d3-edge__label')
+      const pathEl = group.select<SVGPathElement>('path.equity-d3-edge__line')
+      const label = group.select<SVGTextElement>('text.equity-d3-edge__label')
+      const prevPath = prevPaths.get(d.id)
+      const startPath =
+        animate && anchor && toggle?.expanding && !prevPath
+          ? collapsedPathAt(anchor)
+          : (prevPath ?? path)
 
       pathEl
-        .attr('d', path)
         .attr('fill', 'none')
         .attr('stroke', EDGE_COLOR)
         .attr('stroke-width', 1)
         .attr('marker-end', 'url(#equity-d3-arrow)')
 
+      if (animate && startPath !== path) {
+        pathEl
+          .attr('d', startPath)
+          .transition()
+          .duration(duration)
+          .ease(ease)
+          .attrTween('d', () => d3.interpolateString(startPath, path))
+      } else {
+        pathEl.attr('d', path)
+      }
+
       if (d.percent) {
         label
-          .attr('x', labelX)
-          .attr('y', labelY - 6)
           .attr('text-anchor', 'middle')
           .attr('font-size', 11)
           .attr('fill', '#6b7280')
           .attr('font-weight', 500)
           .text(d.percent)
+
+        if (animate) {
+          const startLabelX =
+            anchor && toggle?.expanding && !prevPath ? anchor.x : parseFloat(label.attr('x') || String(labelX))
+          const startLabelY =
+            anchor && toggle?.expanding && !prevPath
+              ? anchor.y
+              : parseFloat(label.attr('y') || String(labelY - 6))
+
+          label
+            .attr('x', startLabelX)
+            .attr('y', startLabelY)
+            .transition()
+            .duration(duration)
+            .ease(ease)
+            .attr('x', labelX)
+            .attr('y', labelY - 6)
+        } else {
+          label.attr('x', labelX).attr('y', labelY - 6)
+        }
       } else {
         label.text('')
       }
     })
 
-    edgeEnter
-      .transition()
-      .duration(animate ? TRANSITION_MS : 0)
-      .style('opacity', 1)
-
-    edgeSelection.style('opacity', 1)
+    edgeEnter.transition().duration(duration).ease(ease).style('opacity', 1)
+    edgeSelection.transition().duration(duration).ease(ease).style('opacity', 1)
   }
 
-  function renderNodes(animate: boolean) {
+  function renderNodes(
+    animate: boolean,
+    prevPositions: Map<string, { x: number; y: number }>,
+    toggle: ToggleContext | null,
+  ) {
+    const duration = animate ? TRANSITION_MS : 0
+    const ease = d3.easeCubicInOut
+    const anchor = toggle ? fullLayout.nodeById.get(toggle.nodeId) : undefined
+    const anchorTransform = anchor ? nodeTransform(anchor) : null
+
     const nodeSelection = nodeLayer
       .selectAll<SVGGElement, LayoutNode>('g.equity-d3-node')
       .data(layout.nodes, (d) => d.id)
 
-    nodeSelection.exit().transition().duration(animate ? TRANSITION_MS : 0).style('opacity', 0).remove()
+    nodeSelection.exit().each(function (this: SVGGElement) {
+      const d = d3.select(this).datum() as LayoutNode
+      const group = d3.select(this)
+      const prev = prevPositions.get(d.id)
+      const endTransform =
+        animate && anchorTransform && toggle && !toggle.expanding
+          ? anchorTransform
+          : prev
+            ? `translate(${prev.x - NODE_WIDTH / 2},${prev.y - NODE_HEIGHT / 2})`
+            : nodeTransform(d)
+
+      group
+        .transition()
+        .duration(duration)
+        .ease(ease)
+        .attr('transform', endTransform)
+        .style('opacity', 0)
+        .remove()
+    })
 
     const nodeEnter = nodeSelection
       .enter()
       .append('g')
       .attr('class', 'equity-d3-node')
-      .attr('transform', (d) => `translate(${d.x - NODE_WIDTH / 2},${d.y - NODE_HEIGHT / 2})`)
-      .style('opacity', 0)
+      .attr('transform', (d) => {
+        if (animate && anchorTransform && toggle?.expanding) return anchorTransform
+        const prev = prevPositions.get(d.id)
+        if (prev) {
+          return `translate(${prev.x - NODE_WIDTH / 2},${prev.y - NODE_HEIGHT / 2})`
+        }
+        return nodeTransform(d)
+      })
+      .style('opacity', animate ? 0 : 1)
       .style('cursor', 'default')
 
     nodeEnter.append('rect').attr('class', 'equity-d3-node__body')
@@ -489,17 +642,16 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
 
     const nodeMerge = nodeEnter.merge(nodeSelection)
 
-    nodeMerge.attr(
-      'transform',
-      (d) => `translate(${d.x - NODE_WIDTH / 2},${d.y - NODE_HEIGHT / 2})`,
-    )
-
-    nodeEnter
-      .transition()
-      .duration(animate ? TRANSITION_MS : 0)
-      .style('opacity', 1)
-
-    nodeSelection.style('opacity', 1)
+    if (animate) {
+      nodeMerge
+        .transition()
+        .duration(duration)
+        .ease(ease)
+        .attr('transform', (d) => nodeTransform(d))
+        .style('opacity', 1)
+    } else {
+      nodeMerge.attr('transform', (d) => nodeTransform(d)).style('opacity', 1)
+    }
 
     nodeMerge.each(function (d) {
       const group = d3.select(this)
@@ -547,35 +699,48 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
       .on('mouseleave', () => {
         if (!isAnimating) highlightNode(null)
       })
-
-    updateBadges()
   }
 
   function refreshGraph(animate: boolean) {
+    const prevPositions = snapshotNodePositions(
+      nodeLayer.selectAll<SVGGElement, LayoutNode>('g.equity-d3-node'),
+    )
+    const prevPaths = snapshotEdgePaths(
+      edgeLayer.selectAll<SVGGElement, LayoutEdge>('g.equity-d3-edge'),
+    )
+    const toggle = lastToggle
+
     const hidden = computeHiddenNodes(topo, collapsedUpstream, collapsedDownstream)
     layout = filterVisibleLayout(fullLayout, hidden)
 
     isAnimating = animate
     highlightNode(null)
-    renderEdges(animate)
-    renderNodes(animate)
+    renderEdges(animate, prevPaths, toggle)
+    renderNodes(animate, prevPositions, toggle)
+    updateBadges()
 
     if (animate) {
       window.setTimeout(() => {
         isAnimating = false
       }, TRANSITION_MS)
     }
+
+    lastToggle = null
   }
 
   function toggleUpstream(nodeId: string) {
-    if (collapsedUpstream.has(nodeId)) collapsedUpstream.delete(nodeId)
+    const expanding = collapsedUpstream.has(nodeId)
+    if (expanding) collapsedUpstream.delete(nodeId)
     else collapsedUpstream.add(nodeId)
+    lastToggle = { nodeId, direction: 'upstream', expanding }
     refreshGraph(true)
   }
 
   function toggleDownstream(nodeId: string) {
-    if (collapsedDownstream.has(nodeId)) collapsedDownstream.delete(nodeId)
+    const expanding = collapsedDownstream.has(nodeId)
+    if (expanding) collapsedDownstream.delete(nodeId)
     else collapsedDownstream.add(nodeId)
+    lastToggle = { nodeId, direction: 'downstream', expanding }
     refreshGraph(true)
   }
 
