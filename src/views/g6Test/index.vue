@@ -1,12 +1,32 @@
 <template>
-  <div class="page">
-    <header class="page__bar">
-      <RouterLink to="/" class="page__back">← 返回</RouterLink>
-        <p class="page__title">G6 · CompactBox</p>
-        <p class="page__hint">蓝=投资方（上） · 紫=某科技公司 · 绿=被投资方（下） · 点击 ± 懒加载展开</p>
-      <button type="button" class="page__btn" @click="handleFitView">适应画布</button>
+  <div class="penetration-page">
+    <header class="penetration-toolbar">
+      <div class="penetration-toolbar__left">
+        <RouterLink to="/" class="penetration-toolbar__back">← 返回</RouterLink>
+        <h1 class="penetration-toolbar__title">股权穿透图</h1>
+      </div>
+      <div class="penetration-toolbar__search">
+        <input
+          class="penetration-search"
+          type="text"
+          placeholder="请输入企业名、人名、产品名等"
+          disabled
+        />
+      </div>
+      <div class="penetration-toolbar__actions">
+        <button type="button" class="penetration-action" @click="handleFitView">适应画布</button>
+      </div>
     </header>
-    <div ref="chartRef" class="page__chart" />
+
+    <section class="penetration-body">
+      <div ref="chartRef" class="penetration-chart">
+        <div class="penetration-watermark" aria-hidden="true">穿透图</div>
+        <div v-if="isLazyLoading" class="penetration-loading" role="status" aria-live="polite">
+          <span class="penetration-loading__spinner" />
+          <p class="penetration-loading__text">加载中...</p>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -16,12 +36,17 @@ import type { Graph } from '@antv/g6'
 import { createG6TestGraph } from './createG6TestGraph'
 
 const chartRef = ref<HTMLElement | null>(null)
+const isLazyLoading = ref(false)
 let graph: Graph | null = null
 let resizeObserver: ResizeObserver | null = null
 
 async function initChart() {
   if (!chartRef.value) return
-  graph = await createG6TestGraph(chartRef.value)
+  graph = await createG6TestGraph(chartRef.value, undefined, {
+    onLazyLoadingChange: (loading) => {
+      isLazyLoading.value = loading
+    },
+  })
 }
 
 function handleFitView() {
@@ -44,75 +69,169 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
+  isLazyLoading.value = false
   graph?.destroy()
   graph = null
 })
 </script>
 
 <style scoped>
-.page {
+.penetration-page {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f1f3f5;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  color: #212529;
+  background: #ffffff;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+  color: #333333;
 }
 
-.page__bar {
+.penetration-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+  padding: 16px 24px 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.penetration-toolbar__left {
   display: flex;
   align-items: center;
   gap: 16px;
   flex-shrink: 0;
-  padding: 12px 20px;
-  background: #212529;
-  color: #f8f9fa;
 }
 
-.page__back {
-  font-size: 14px;
-  color: #adb5bd;
+.penetration-toolbar__back {
+  font-size: 13px;
+  color: #999999;
   text-decoration: none;
+  white-space: nowrap;
 }
 
-.page__back:hover {
-  color: #f8f9fa;
+.penetration-toolbar__back:hover {
+  color: #1890ff;
 }
 
-.page__title {
+.penetration-toolbar__title {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  color: #333333;
+  white-space: nowrap;
 }
 
-.page__hint {
+.penetration-toolbar__search {
   flex: 1;
-  margin: 0;
-  font-size: 12px;
-  color: #868e96;
+  max-width: 420px;
 }
 
-.page__btn {
-  padding: 6px 14px;
+.penetration-search {
+  width: 100%;
+  height: 32px;
+  padding: 0 12px;
   font-size: 13px;
-  color: #212529;
-  background: #51cf66;
-  border: none;
+  color: #333333;
+  background: #ffffff;
+  border: 1px solid #d9d9d9;
   border-radius: 4px;
+  outline: none;
+}
+
+.penetration-search::placeholder {
+  color: #bfbfbf;
+}
+
+.penetration-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.penetration-action {
+  padding: 0;
+  font-size: 13px;
+  color: #1890ff;
+  background: none;
+  border: none;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.page__btn:hover {
-  background: #40c057;
+.penetration-action:hover {
+  color: #096dd9;
 }
 
-.page__chart {
+.penetration-body {
   flex: 1;
   min-height: 0;
-  margin: 16px;
-  background: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 8px 16px 16px;
+}
+
+.penetration-chart {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #f5f7fa;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+}
+
+.penetration-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.penetration-watermark::before {
+  content: '穿透图  穿透图  穿透图  穿透图  穿透图  穿透图  穿透图  穿透图';
+  position: absolute;
+  top: -20%;
+  left: -10%;
+  width: 140%;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 72px;
+  color: rgba(0, 0, 0, 0.03);
+  transform: rotate(-24deg);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.penetration-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  pointer-events: all;
+}
+
+.penetration-loading__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e6f4ff;
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: penetration-spin 0.8s linear infinite;
+}
+
+.penetration-loading__text {
+  margin: 0;
+  font-size: 14px;
+  color: #666666;
+}
+
+@keyframes penetration-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

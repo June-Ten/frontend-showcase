@@ -11,12 +11,19 @@ import {
   type InvestTreeChild,
   type InvestTreeData,
 } from './testGraphData'
-import { G6_TEST_TREE_POLYLINE_TYPE, registerG6TestTreePolyline } from './g6TestTreePolylineEdge'
+import { G6_TEST_TREE_POLYLINE_TYPE, G6_TEST_NODE_ZINDEX, registerG6TestTreePolyline, isG6TestVisibilityAnimating, setG6TestVisibilityAnimating, stopAllG6TestTreePolylineEdges, syncAllG6TestTreePolylineEdges } from './g6TestTreePolylineEdge'
+import {
+  formatNodeLabel,
+  getPenetrationNodeVisual,
+  EDGE_PERCENT_LABEL_STYLE,
+  PENETRATION_THEME,
+} from './g6TestTheme'
 
 registerG6TestTreePolyline()
 
-const NODE_W = 168
-const NODE_H = 46
+const NODE_W = 200
+const NODE_H = 62
+const NODE_RADIUS = 4
 
 function getPosition(hierarchyNode?: { data?: Record<string, unknown> }) {
   const raw = hierarchyNode?.data
@@ -55,11 +62,21 @@ function toGraphData(tree: InvestTreeData) {
     }
   }
 
-  data.edges = (data.edges ?? []).map((edge) => ({
-    ...edge,
-    sourcePort: 'bottom',
-    targetPort: 'top',
-  }))
+  data.edges = (data.edges ?? []).map((edge) => {
+    const targetNode = data.nodes?.find((node) => node.id === edge.target)
+    const targetData = (targetNode?.data ?? {}) as Record<string, unknown>
+    const percent = targetData.percent ? String(targetData.percent) : ''
+
+    return {
+      ...edge,
+      sourcePort: 'bottom',
+      targetPort: 'top',
+      style: {
+        labelText: percent,
+        ...EDGE_PERCENT_LABEL_STYLE,
+      },
+    }
+  })
   return data
 }
 
@@ -79,24 +96,24 @@ function patchTreeEdgePorts(graph: G6Graph, sourceId: string, targetIds: string[
   if (edges.length === 0) return
 
   graph.updateEdgeData(
-    edges.map((edge) => ({
-      id: edge.id,
-      sourcePort: 'bottom',
-      targetPort: 'top',
-    })),
+    edges.map((edge) => {
+      const target = graph.getNodeData(String(edge.target))
+      const percent = getNodeData(target).percent
+      return {
+        id: edge.id,
+        sourcePort: 'bottom',
+        targetPort: 'top',
+        style: {
+          labelText: percent ? String(percent) : '',
+          ...EDGE_PERCENT_LABEL_STYLE,
+        },
+      }
+    }),
   )
 }
 
 function nodeColors(position?: string, kind?: string) {
-  if (kind === 'target') {
-    return { fill: '#364fc7', stroke: '#24318f', label: '#ffffff' }
-  }
-  if (position === 'up') {
-    return kind === 'person'
-      ? { fill: '#fff4e6', stroke: '#fd7e14', label: '#8a4b08' }
-      : { fill: '#e7f5ff', stroke: '#339af0', label: '#1864ab' }
-  }
-  return { fill: '#ebfbee', stroke: '#51cf66', label: '#2b8a3e' }
+  return getPenetrationNodeVisual(position, kind)
 }
 
 function collapseBadgePlacement(datum: NodeData): 'top' | 'bottom' {
@@ -123,24 +140,22 @@ interface CollapseBadgeStyle {
 }
 
 function createCollapseBadge(datum: NodeData, text: string): CollapseBadgeStyle {
-  const data = getNodeData(datum)
-  const colors = nodeColors(data.position as string | undefined, data.kind as string | undefined)
   const placement = collapseBadgePlacement(datum)
 
   return {
     text,
     placement,
-    offsetY: placement === 'top' ? -10 : 10,
+    offsetY: placement === 'top' ? -11 : 11,
     padding: [0, 0, 0, 0],
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 600,
     backgroundWidth: 18,
     backgroundHeight: 18,
     backgroundRadius: 9,
-    backgroundFill: '#ffffff',
-    backgroundStroke: colors.stroke,
-    backgroundLineWidth: 1.5,
-    fill: colors.stroke,
+    backgroundFill: PENETRATION_THEME.badgeFill,
+    backgroundStroke: PENETRATION_THEME.badgeFill,
+    backgroundLineWidth: 0,
+    fill: PENETRATION_THEME.badgeText,
     textAlign: 'center' as const,
     textBaseline: 'middle' as const,
   }
@@ -148,14 +163,14 @@ function createCollapseBadge(datum: NodeData, text: string): CollapseBadgeStyle 
 
 function collapseExpandBadge(
   datum: NodeData,
-  loadingNodeIds: Set<string>,
+  lazyLoadingNodeId: string | null,
   badgeVersion: number,
 ): CollapseBadgeStyle[] {
   void badgeVersion
   if (!canShowExpandBadge(datum)) return []
 
   const nodeId = String(datum.id)
-  if (loadingNodeIds.has(nodeId)) {
+  if (lazyLoadingNodeId === nodeId) {
     return [createCollapseBadge(datum, '…')]
   }
 
@@ -179,13 +194,53 @@ function isPointerOnNodeBadge(event: IPointerEvent) {
   return false
 }
 
+function clearActiveHoverStates(graph: G6Graph) {
+  const updates: Record<string, string[]> = {}
+
+  for (const datum of graph.getElementDataByState('node', 'active')) {
+    const id = String(datum.id)
+    updates[id] = graph.getElementState(id).filter((state) => state !== 'active')
+  }
+
+  for (const datum of graph.getElementDataByState('edge', 'active')) {
+    const id = String(datum.id)
+    updates[id] = graph.getElementState(id).filter((state) => state !== 'active')
+  }
+
+  if (Object.keys(updates).length > 0) {
+    void graph.setElementState(updates, false)
+  }
+}
+
+async function runWithVisibilityAnimation(graph: G6Graph, task: () => Promise<void>) {
+  clearActiveHoverStates(graph)
+  stopAllG6TestTreePolylineEdges(graph)
+  setG6TestVisibilityAnimating(true)
+  try {
+    await task()
+  } finally {
+    setG6TestVisibilityAnimating(false)
+    syncAllG6TestTreePolylineEdges(graph)
+  }
+}
+
+export interface G6TestGraphOptions {
+  onLazyLoadingChange?: (loading: boolean) => void
+}
+
 export async function createG6TestGraph(
   container: HTMLElement,
   tree: InvestTreeData = investTreeInitialData,
+  options: G6TestGraphOptions = {},
 ): Promise<G6Graph> {
   let graph!: G6Graph
-  const loadingNodeIds = new Set<string>()
+  /** 全局仅允许一个懒加载任务进行 */
+  let lazyLoadingNodeId: string | null = null
   let badgeVersion = 0
+
+  function setLazyLoading(loading: boolean) {
+    options.onLazyLoadingChange?.(loading)
+  }
 
   async function refreshBadges(nodeIds?: string[]) {
     badgeVersion += 1
@@ -195,7 +250,7 @@ export async function createG6TestGraph(
   }
 
   async function handleBadgeClick(nodeId: string) {
-    if (loadingNodeIds.has(nodeId)) return
+    if (lazyLoadingNodeId !== null) return
 
     const nodeData = graph.getNodeData(nodeId)
     if (!canShowExpandBadge(nodeData)) return
@@ -203,8 +258,10 @@ export async function createG6TestGraph(
     const collapsed = !!nodeData.style?.collapsed
 
     if (!collapsed) {
-      await graph.collapseElement(nodeId, { animation: true, align: true })
-      await refreshBadges([nodeId])
+      await runWithVisibilityAnimation(graph, async () => {
+        await graph.collapseElement(nodeId, { animation: true, align: true })
+        await refreshBadges([nodeId])
+      })
       return
     }
 
@@ -212,28 +269,33 @@ export async function createG6TestGraph(
     const lazy = hasLazyChildren(nodeData)
 
     if (!loaded && lazy) {
-      loadingNodeIds.add(nodeId)
+      lazyLoadingNodeId = nodeId
+      setLazyLoading(true)
       await refreshBadges([nodeId])
-      try {
-        const children = await fetchInvestChildren(nodeId)
-        if (children.length === 0) {
-          graph.updateNodeData([{ id: nodeId, data: { ...nodeData.data, hasChildren: false } }])
+      await runWithVisibilityAnimation(graph, async () => {
+        try {
+          const children = await fetchInvestChildren(nodeId)
+          if (children.length === 0) {
+            graph.updateNodeData([{ id: nodeId, data: { ...nodeData.data, hasChildren: false } }])
+            return
+          }
+          const childIds = children.map((child) => child.id)
+          graph.addChildrenData(nodeId, children.map(toLazyChildNodeData))
+          patchTreeEdgePorts(graph, nodeId, childIds)
+          await graph.expandElement(nodeId, { animation: true, align: true })
+        } finally {
+          lazyLoadingNodeId = null
+          setLazyLoading(false)
           await refreshBadges([nodeId])
-          return
         }
-        const childIds = children.map((child) => child.id)
-        graph.addChildrenData(nodeId, children.map(toLazyChildNodeData))
-        patchTreeEdgePorts(graph, nodeId, childIds)
-        await graph.expandElement(nodeId, { animation: true, align: true })
-        await refreshBadges([nodeId])
-      } finally {
-        loadingNodeIds.delete(nodeId)
-      }
+      })
       return
     }
 
-    await graph.expandElement(nodeId, { animation: true, align: true })
-    await refreshBadges([nodeId])
+    await runWithVisibilityAnimation(graph, async () => {
+      await graph.expandElement(nodeId, { animation: true, align: true })
+      await refreshBadges([nodeId])
+    })
   }
 
   graph = new Graph({
@@ -241,6 +303,7 @@ export async function createG6TestGraph(
     width: container.clientWidth || 800,
     height: container.clientHeight || 600,
     padding: 40,
+    background: 'transparent',
     data: toGraphData(tree),
     layout: {
       type: 'compact-box',
@@ -248,8 +311,8 @@ export async function createG6TestGraph(
       getId: (d?: { id?: string | number }) => String(d?.id ?? ''),
       getWidth: () => NODE_W,
       getHeight: () => NODE_H,
-      getVGap: () => 72,
-      getHGap: () => 36,
+      getVGap: () => 80,
+      getHGap: () => 48,
       getSide: (child: { data?: Record<string, unknown> }) => {
         return getPosition(child) === 'up' ? 'left' : 'right'
       },
@@ -258,8 +321,9 @@ export async function createG6TestGraph(
       type: 'rect',
       style: {
         size: [NODE_W, NODE_H],
-        radius: 8,
-        lineWidth: 1.5,
+        radius: NODE_RADIUS,
+        lineWidth: 1,
+        zIndex: G6_TEST_NODE_ZINDEX,
         fill: (d) => {
           const data = getNodeData(d)
           return nodeColors(data.position as string | undefined, data.kind as string | undefined).fill
@@ -271,30 +335,52 @@ export async function createG6TestGraph(
         labelText: (d) => {
           const data = getNodeData(d)
           const name = String(data.name ?? '')
-          const percent = data.percent ? `\n${data.percent}` : ''
-          return `${name}${percent}`
+          const percent = data.percent ? String(data.percent) : undefined
+          return formatNodeLabel(name, percent, data.kind as string | undefined)
         },
         labelFill: (d) => {
           const data = getNodeData(d)
           return nodeColors(data.position as string | undefined, data.kind as string | undefined).label
         },
         labelFontSize: 12,
-        labelLineHeight: 16,
+        labelFontWeight: (d: { data?: Record<string, unknown> }) =>
+          (getNodeData(d).kind === 'target' ? 600 : 500),
+        labelLineHeight: 18,
         labelPlacement: 'center',
         labelWordWrap: true,
-        labelMaxWidth: NODE_W - 16,
+        labelMaxWidth: NODE_W - 20,
         cursor: (datum) => (canShowExpandBadge(datum) ? 'pointer' : 'default'),
         badge: (datum) => canShowExpandBadge(datum),
-        badges: (datum) => collapseExpandBadge(datum, loadingNodeIds, badgeVersion),
+        badges: (datum) => collapseExpandBadge(datum, lazyLoadingNodeId, badgeVersion),
         ports: [{ placement: 'top' }, { placement: 'bottom' }],
+      },
+      state: {
+        active: {
+          halo: false,
+        },
       },
     },
     edge: {
       type: G6_TEST_TREE_POLYLINE_TYPE,
       style: {
-        stroke: '#868e96',
+        stroke: PENETRATION_THEME.edgeStroke,
         lineWidth: 1,
         endArrow: true,
+        zIndex: 1,
+        ...EDGE_PERCENT_LABEL_STYLE,
+        labelText: (datum) => {
+          const target = graph.getNodeData(String(datum.target))
+          const percent = getNodeData(target).percent
+          return percent ? String(percent) : ''
+        },
+      },
+      state: {
+        active: {
+          halo: false,
+          lineWidth: 2,
+          stroke: PENETRATION_THEME.primary,
+          zIndex: 3,
+        },
       },
       animation: {
         collapse: [{ fields: ['sourceNode', 'targetNode'] }],
@@ -308,6 +394,21 @@ export async function createG6TestGraph(
         enable: (event: IPointerEvent) => !isPointerOnNodeBadge(event),
       },
       { type: 'zoom-canvas', sensitivity: 0.15 },
+      {
+        type: 'hover-activate',
+        degree: 1,
+        enable: (event: IPointerEvent) =>
+          !isPointerOnNodeBadge(event) && lazyLoadingNodeId === null && !isG6TestVisibilityAnimating(),
+        onHover: () => {
+          if (isG6TestVisibilityAnimating()) return
+          requestAnimationFrame(() => syncAllG6TestTreePolylineEdges(graph))
+        },
+        onHoverEnd: () => {
+          if (isG6TestVisibilityAnimating()) return
+          stopAllG6TestTreePolylineEdges(graph)
+          requestAnimationFrame(() => syncAllG6TestTreePolylineEdges(graph))
+        },
+      },
     ],
   })
 
