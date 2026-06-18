@@ -206,10 +206,10 @@ const navItems = [
 const projects = [
   {
     title: '股权穿透图',
-    description: 'G6 Dagre 布局股权穿透图，支持股东链/对外投资折叠展开',
-    tags: ['Vue3', 'G6', 'Dagre'],
+    description: 'G6 CompactBox 双向穿透图，懒加载子节点、± 折叠展开、悬浮蚂蚁线',
+    tags: ['Vue3', 'G6', 'CompactBox'],
     thumbType: 'equity' as const,
-    href: '/equity',
+    href: '/equity-compact-box',
   },
   {
     title: 'PDF 签署',

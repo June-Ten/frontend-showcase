@@ -18,8 +18,8 @@ const routes = [
   },
   {
     path: '/equity-compact-box',
-    name: 'EquityCompactBox',
-    component: () => import('../views/equityCompactBox/index.vue')
+    name: 'EquityPenetration',
+    component: () => import('../views/equity-compact-box/index.vue')
   },
   {
     path: '/equity-d3',
@@ -30,11 +30,6 @@ const routes = [
     path: '/sign',
     name: 'Sign',
     component: () => import('../views/sign/index.vue')
-  },
-  {
-    path: '/g6-test',
-    name: 'G6Test',
-    component: () => import('../views/g6Test/index.vue')
   }
 ]
 

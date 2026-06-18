@@ -10,16 +10,24 @@ import {
   investTreeInitialData,
   type InvestTreeChild,
   type InvestTreeData,
-} from './testGraphData'
-import { G6_TEST_TREE_POLYLINE_TYPE, G6_TEST_NODE_ZINDEX, registerG6TestTreePolyline, isG6TestVisibilityAnimating, setG6TestVisibilityAnimating, stopAllG6TestTreePolylineEdges, syncAllG6TestTreePolylineEdges } from './g6TestTreePolylineEdge'
+} from './investTreeData'
+import {
+  COMPACT_BOX_TREE_POLYLINE_TYPE,
+  COMPACT_BOX_NODE_ZINDEX,
+  registerCompactBoxTreePolyline,
+  isCompactBoxVisibilityAnimating,
+  setCompactBoxVisibilityAnimating,
+  stopAllCompactBoxTreePolylineEdges,
+  syncAllCompactBoxTreePolylineEdges,
+} from './treePolylineEdge'
 import {
   formatNodeLabel,
   getPenetrationNodeVisual,
   EDGE_PERCENT_LABEL_STYLE,
   PENETRATION_THEME,
-} from './g6TestTheme'
+} from './penetrationTheme'
 
-registerG6TestTreePolyline()
+registerCompactBoxTreePolyline()
 
 const NODE_W = 200
 const NODE_H = 62
@@ -214,24 +222,24 @@ function clearActiveHoverStates(graph: G6Graph) {
 
 async function runWithVisibilityAnimation(graph: G6Graph, task: () => Promise<void>) {
   clearActiveHoverStates(graph)
-  stopAllG6TestTreePolylineEdges(graph)
-  setG6TestVisibilityAnimating(true)
+  stopAllCompactBoxTreePolylineEdges(graph)
+  setCompactBoxVisibilityAnimating(true)
   try {
     await task()
   } finally {
-    setG6TestVisibilityAnimating(false)
-    syncAllG6TestTreePolylineEdges(graph)
+    setCompactBoxVisibilityAnimating(false)
+    syncAllCompactBoxTreePolylineEdges(graph)
   }
 }
 
-export interface G6TestGraphOptions {
+export interface CompactBoxEquityGraphOptions {
   onLazyLoadingChange?: (loading: boolean) => void
 }
 
-export async function createG6TestGraph(
+export async function createCompactBoxEquityGraph(
   container: HTMLElement,
   tree: InvestTreeData = investTreeInitialData,
-  options: G6TestGraphOptions = {},
+  options: CompactBoxEquityGraphOptions = {},
 ): Promise<G6Graph> {
   let graph!: G6Graph
   /** 全局仅允许一个懒加载任务进行 */
@@ -323,7 +331,7 @@ export async function createG6TestGraph(
         size: [NODE_W, NODE_H],
         radius: NODE_RADIUS,
         lineWidth: 1,
-        zIndex: G6_TEST_NODE_ZINDEX,
+        zIndex: COMPACT_BOX_NODE_ZINDEX,
         fill: (d) => {
           const data = getNodeData(d)
           return nodeColors(data.position as string | undefined, data.kind as string | undefined).fill
@@ -361,7 +369,7 @@ export async function createG6TestGraph(
       },
     },
     edge: {
-      type: G6_TEST_TREE_POLYLINE_TYPE,
+      type: COMPACT_BOX_TREE_POLYLINE_TYPE,
       style: {
         stroke: PENETRATION_THEME.edgeStroke,
         lineWidth: 1,
@@ -398,15 +406,15 @@ export async function createG6TestGraph(
         type: 'hover-activate',
         degree: 1,
         enable: (event: IPointerEvent) =>
-          !isPointerOnNodeBadge(event) && lazyLoadingNodeId === null && !isG6TestVisibilityAnimating(),
+          !isPointerOnNodeBadge(event) && lazyLoadingNodeId === null && !isCompactBoxVisibilityAnimating(),
         onHover: () => {
-          if (isG6TestVisibilityAnimating()) return
-          requestAnimationFrame(() => syncAllG6TestTreePolylineEdges(graph))
+          if (isCompactBoxVisibilityAnimating()) return
+          requestAnimationFrame(() => syncAllCompactBoxTreePolylineEdges(graph))
         },
         onHoverEnd: () => {
-          if (isG6TestVisibilityAnimating()) return
-          stopAllG6TestTreePolylineEdges(graph)
-          requestAnimationFrame(() => syncAllG6TestTreePolylineEdges(graph))
+          if (isCompactBoxVisibilityAnimating()) return
+          stopAllCompactBoxTreePolylineEdges(graph)
+          requestAnimationFrame(() => syncAllCompactBoxTreePolylineEdges(graph))
         },
       },
     ],

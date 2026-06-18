@@ -33,7 +33,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Graph } from '@antv/g6'
-import { createG6TestGraph } from './createG6TestGraph'
+import { createCompactBoxEquityGraph } from './createCompactBoxEquityGraph'
 
 const chartRef = ref<HTMLElement | null>(null)
 const isLazyLoading = ref(false)
@@ -42,7 +42,7 @@ let resizeObserver: ResizeObserver | null = null
 
 async function initChart() {
   if (!chartRef.value) return
-  graph = await createG6TestGraph(chartRef.value, undefined, {
+  graph = await createCompactBoxEquityGraph(chartRef.value, undefined, {
     onLazyLoadingChange: (loading) => {
       isLazyLoading.value = loading
     },

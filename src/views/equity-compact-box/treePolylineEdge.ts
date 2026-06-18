@@ -1,6 +1,6 @@
 import { ExtensionCategory, Polyline, register, type Graph as G6Graph, type Point } from '@antv/g6'
 
-const EDGE_TYPE = 'g6-test-tree-polyline'
+const EDGE_TYPE = 'compact-box-tree-polyline'
 const ANT_LINE_DASH = [6, 4] as const
 const ANT_LINE_OFFSET = 20
 const ANT_LINE_DURATION = 450
@@ -11,16 +11,16 @@ const EDGE_LABEL_OFFSET_Y = 0
 const DEFAULT_EDGE_ZINDEX = 1
 /** 高于普通边，但低于节点（含 ± 折叠按钮） */
 const ACTIVE_EDGE_ZINDEX = 3
-export const G6_TEST_NODE_ZINDEX = 5
+export const COMPACT_BOX_NODE_ZINDEX = 5
 
 let visibilityAnimating = false
 
 /** 折叠/展开、懒加载期间跳过边的蚂蚁线，避免与布局动画冲突 */
-export function setG6TestVisibilityAnimating(value: boolean) {
+export function setCompactBoxVisibilityAnimating(value: boolean) {
   visibilityAnimating = value
 }
 
-export function isG6TestVisibilityAnimating() {
+export function isCompactBoxVisibilityAnimating() {
   return visibilityAnimating
 }
 
@@ -57,20 +57,20 @@ function lastVerticalSegmentLabelRatio(source: Point, target: Point): number {
   return (seg1 + seg2 + seg3 * 0.55) / total
 }
 
-function getG6TestTreePolyline(graph: G6Graph, id: string): G6TestTreePolyline | undefined {
-  return (graph as unknown as { context: { element: { getElement: (id: string) => G6TestTreePolyline | undefined } } })
+function getCompactBoxTreePolyline(graph: G6Graph, id: string): CompactBoxTreePolyline | undefined {
+  return (graph as unknown as { context: { element: { getElement: (id: string) => CompactBoxTreePolyline | undefined } } })
     .context.element.getElement(id)
 }
 
-function forEachG6TestTreePolyline(graph: G6Graph, fn: (edge: G6TestTreePolyline) => void) {
+function forEachCompactBoxTreePolyline(graph: G6Graph, fn: (edge: CompactBoxTreePolyline) => void) {
   for (const edge of graph.getEdgeData()) {
     const id = edge.id ?? `${edge.source}-${edge.target}`
-    const element = getG6TestTreePolyline(graph, id)
+    const element = getCompactBoxTreePolyline(graph, id)
     if (element) fn(element)
   }
 }
 
-class G6TestTreePolyline extends Polyline {
+class CompactBoxTreePolyline extends Polyline {
   private antAnimation: CancellableAnimation | null = null
 
   getControlPoints(attributes: Parameters<Polyline['getControlPoints']>[0]) {
@@ -159,18 +159,18 @@ class G6TestTreePolyline extends Polyline {
 
 let registered = false
 
-export function registerG6TestTreePolyline() {
+export function registerCompactBoxTreePolyline() {
   if (registered) return
-  register(ExtensionCategory.EDGE, EDGE_TYPE, G6TestTreePolyline)
+  register(ExtensionCategory.EDGE, EDGE_TYPE, CompactBoxTreePolyline)
   registered = true
 }
 
-export function stopAllG6TestTreePolylineEdges(graph: G6Graph) {
-  forEachG6TestTreePolyline(graph, (edge) => edge.stopAntAnimation())
-  syncG6TestEdgeZIndex(graph)
+export function stopAllCompactBoxTreePolylineEdges(graph: G6Graph) {
+  forEachCompactBoxTreePolyline(graph, (edge) => edge.stopAntAnimation())
+  syncCompactBoxEdgeZIndex(graph)
 }
 
-export function syncG6TestEdgeZIndex(graph: G6Graph) {
+function syncCompactBoxEdgeZIndex(graph: G6Graph) {
   if (visibilityAnimating) return
 
   const activeIds = new Set(
@@ -188,9 +188,9 @@ export function syncG6TestEdgeZIndex(graph: G6Graph) {
   }
 }
 
-export function syncAllG6TestTreePolylineEdges(graph: G6Graph) {
-  forEachG6TestTreePolyline(graph, (edge) => edge.syncAntAnimation())
-  syncG6TestEdgeZIndex(graph)
+export function syncAllCompactBoxTreePolylineEdges(graph: G6Graph) {
+  forEachCompactBoxTreePolyline(graph, (edge) => edge.syncAntAnimation())
+  syncCompactBoxEdgeZIndex(graph)
 }
 
-export { EDGE_TYPE as G6_TEST_TREE_POLYLINE_TYPE }
+export { EDGE_TYPE as COMPACT_BOX_TREE_POLYLINE_TYPE }
