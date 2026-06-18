@@ -21,10 +21,21 @@
     <section class="penetration-body">
       <div ref="chartRef" class="penetration-chart">
         <div class="penetration-watermark" aria-hidden="true">穿透图</div>
-        <div v-if="isLazyLoading" class="penetration-loading" role="status" aria-live="polite">
-          <span class="penetration-loading__spinner" />
-          <p class="penetration-loading__text">加载中...</p>
-        </div>
+
+        <ul class="penetration-legend" aria-label="节点类型说明">
+          <li class="penetration-legend__item">
+            <span class="penetration-legend__dot penetration-legend__dot--target" />
+            目标主体
+          </li>
+          <li class="penetration-legend__item">
+            <span class="penetration-legend__dot penetration-legend__dot--company" />
+            企业
+          </li>
+          <li class="penetration-legend__item">
+            <span class="penetration-legend__dot penetration-legend__dot--person" />
+            自然人
+          </li>
+        </ul>
       </div>
     </section>
   </div>
@@ -36,17 +47,12 @@ import type { Graph } from '@antv/g6'
 import { createCompactBoxEquityGraph } from './createCompactBoxEquityGraph'
 
 const chartRef = ref<HTMLElement | null>(null)
-const isLazyLoading = ref(false)
 let graph: Graph | null = null
 let resizeObserver: ResizeObserver | null = null
 
 async function initChart() {
   if (!chartRef.value) return
-  graph = await createCompactBoxEquityGraph(chartRef.value, undefined, {
-    onLazyLoadingChange: (loading) => {
-      isLazyLoading.value = loading
-    },
-  })
+  graph = await createCompactBoxEquityGraph(chartRef.value)
 }
 
 function handleFitView() {
@@ -69,7 +75,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
-  isLazyLoading.value = false
   graph?.destroy()
   graph = null
 })
@@ -80,18 +85,22 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #ffffff;
+  background: #eef2f8;
   font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
-  color: #333333;
+  color: #1f2733;
 }
 
 .penetration-toolbar {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 20px;
   flex-shrink: 0;
-  padding: 16px 24px 12px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 14px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #eaeef4;
+  box-shadow: 0 2px 12px rgba(31, 45, 61, 0.06);
 }
 
 .penetration-toolbar__left {
@@ -102,22 +111,44 @@ onBeforeUnmount(() => {
 }
 
 .penetration-toolbar__back {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
   font-size: 13px;
-  color: #999999;
+  color: #5a6577;
   text-decoration: none;
   white-space: nowrap;
+  background: #f3f6fb;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
 }
 
 .penetration-toolbar__back:hover {
   color: #1890ff;
+  background: #e6f4ff;
 }
 
 .penetration-toolbar__title {
+  position: relative;
   margin: 0;
+  padding-left: 12px;
   font-size: 16px;
   font-weight: 600;
-  color: #333333;
+  color: #1f2733;
   white-space: nowrap;
+}
+
+.penetration-toolbar__title::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 4px;
+  height: 16px;
+  background: linear-gradient(180deg, #3aa0ff, #1677ff);
+  border-radius: 2px;
+  transform: translateY(-50%);
 }
 
 .penetration-toolbar__search {
@@ -127,18 +158,29 @@ onBeforeUnmount(() => {
 
 .penetration-search {
   width: 100%;
-  height: 32px;
-  padding: 0 12px;
+  height: 34px;
+  padding: 0 14px;
   font-size: 13px;
-  color: #333333;
-  background: #ffffff;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
+  color: #1f2733;
+  background: #f3f6fb;
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
   outline: none;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.penetration-search:not(:disabled):hover {
+  border-color: #a3d0ff;
+}
+
+.penetration-search:not(:disabled):focus {
+  background: #ffffff;
+  border-color: #1890ff;
+  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.12);
 }
 
 .penetration-search::placeholder {
-  color: #bfbfbf;
+  color: #aab3c2;
 }
 
 .penetration-toolbar__actions {
@@ -149,23 +191,34 @@ onBeforeUnmount(() => {
 }
 
 .penetration-action {
-  padding: 0;
+  height: 32px;
+  padding: 0 16px;
   font-size: 13px;
-  color: #1890ff;
-  background: none;
+  font-weight: 500;
+  color: #ffffff;
+  background: linear-gradient(180deg, #3aa0ff, #1677ff);
   border: none;
+  border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(22, 119, 255, 0.28);
+  transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
 }
 
 .penetration-action:hover {
-  color: #096dd9;
+  filter: brightness(1.04);
+  box-shadow: 0 6px 14px rgba(22, 119, 255, 0.34);
+}
+
+.penetration-action:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(22, 119, 255, 0.28);
 }
 
 .penetration-body {
   flex: 1;
   min-height: 0;
-  padding: 8px 16px 16px;
+  padding: 16px;
 }
 
 .penetration-chart {
@@ -173,9 +226,13 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #f5f7fa;
-  border: 1px solid #f0f0f0;
-  border-radius: 4px;
+  background-color: #f4f7fc;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(31, 71, 153, 0.08) 1px, transparent 0);
+  background-size: 22px 22px;
+  border: 1px solid #e3e9f2;
+  border-radius: 12px;
+  box-shadow: inset 0 1px 3px rgba(31, 45, 61, 0.04);
 }
 
 .penetration-watermark {
@@ -195,43 +252,55 @@ onBeforeUnmount(() => {
   font-size: 28px;
   font-weight: 600;
   line-height: 72px;
-  color: rgba(0, 0, 0, 0.03);
+  color: rgba(31, 71, 153, 0.035);
   transform: rotate(-24deg);
   white-space: nowrap;
   user-select: none;
 }
 
-.penetration-loading {
+.penetration-legend {
   position: absolute;
-  inset: 0;
-  z-index: 10;
+  left: 16px;
+  bottom: 16px;
+  z-index: 5;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  background: rgba(255, 255, 255, 0.88);
-  pointer-events: all;
-}
-
-.penetration-loading__spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #e6f4ff;
-  border-top-color: #1890ff;
-  border-radius: 50%;
-  animation: penetration-spin 0.8s linear infinite;
-}
-
-.penetration-loading__text {
+  gap: 16px;
   margin: 0;
-  font-size: 14px;
-  color: #666666;
+  padding: 10px 16px;
+  list-style: none;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e3e9f2;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(31, 45, 61, 0.08);
+  backdrop-filter: blur(6px);
+  user-select: none;
 }
 
-@keyframes penetration-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.penetration-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #5a6577;
+}
+
+.penetration-legend__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+.penetration-legend__dot--target {
+  background: linear-gradient(180deg, #3aa0ff, #1677ff);
+}
+
+.penetration-legend__dot--company {
+  background: #ffffff;
+  border: 1.5px solid #a3d0ff;
+}
+
+.penetration-legend__dot--person {
+  background: #fffaf3;
+  border: 1.5px solid #ffd591;
 }
 </style>

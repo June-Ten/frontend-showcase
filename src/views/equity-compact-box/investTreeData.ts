@@ -168,7 +168,7 @@ export const investTreeInitialData: InvestTreeData = {
   children: investTreeFullData.children.map(toLazyChild),
 }
 
-const FETCH_DELAY_MS = 600
+const FETCH_DELAY_MS = 200
 
 /** 模拟异步接口：按 parentId 拉取下一层子节点 */
 export async function fetchInvestChildren(parentId: string): Promise<InvestTreeChild[]> {

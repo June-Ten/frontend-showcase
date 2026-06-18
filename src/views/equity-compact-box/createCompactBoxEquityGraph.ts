@@ -1,6 +1,7 @@
 import {
   Graph,
   treeToGraphData,
+  type AnimationOptions,
   type Graph as G6Graph,
   type IPointerEvent,
   type NodeData,
@@ -31,7 +32,36 @@ registerCompactBoxTreePolyline()
 
 const NODE_W = 200
 const NODE_H = 62
-const NODE_RADIUS = 4
+const NODE_RADIUS = 10
+
+/** 折叠/展开动画：默认 500ms 偏慢，且 align 会带动画布平移 */
+const VISIBILITY_ANIM_DURATION = 300
+const EXPAND_COLLAPSE_OPTIONS = { animation: true, align: false } as const
+
+const NODE_VISIBILITY_ANIMATION: Record<string, AnimationOptions[]> = {
+  expand: [
+    { fields: ['opacity'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-out' },
+    { fields: ['x', 'y'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-out' },
+  ],
+  collapse: [
+    { fields: ['opacity'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-in' },
+    { fields: ['x', 'y'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-in' },
+  ],
+}
+
+const EDGE_VISIBILITY_ANIMATION: Record<string, AnimationOptions[]> = {
+  expand: [
+    { fields: ['opacity'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-out' },
+    { fields: ['sourceNode', 'targetNode'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-out' },
+  ],
+  collapse: [
+    { fields: ['opacity'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-in' },
+    { fields: ['sourceNode', 'targetNode'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-in' },
+  ],
+  update: [
+    { fields: ['sourceNode', 'targetNode'], duration: VISIBILITY_ANIM_DURATION, easing: 'ease-out' },
+  ],
+}
 
 function getPosition(hierarchyNode?: { data?: Record<string, unknown> }) {
   const raw = hierarchyNode?.data
@@ -153,17 +183,39 @@ function createCollapseBadge(datum: NodeData, text: string): CollapseBadgeStyle 
   return {
     text,
     placement,
-    offsetY: placement === 'top' ? -11 : 11,
+    offsetY: placement === 'top' ? -12 : 12,
     padding: [0, 0, 0, 0],
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 600,
-    backgroundWidth: 18,
-    backgroundHeight: 18,
-    backgroundRadius: 9,
+    backgroundWidth: 20,
+    backgroundHeight: 20,
+    backgroundRadius: 10,
     backgroundFill: PENETRATION_THEME.badgeFill,
-    backgroundStroke: PENETRATION_THEME.badgeFill,
-    backgroundLineWidth: 0,
+    backgroundStroke: '#ffffff',
+    backgroundLineWidth: 2,
     fill: PENETRATION_THEME.badgeText,
+    textAlign: 'center' as const,
+    textBaseline: 'middle' as const,
+  }
+}
+
+function createLoadingBadge(datum: NodeData): CollapseBadgeStyle {
+  const placement = collapseBadgePlacement(datum)
+
+  return {
+    text: '…',
+    placement,
+    offsetY: placement === 'top' ? -12 : 12,
+    padding: [0, 0, 0, 0],
+    fontSize: 14,
+    fontWeight: 700,
+    backgroundWidth: 22,
+    backgroundHeight: 22,
+    backgroundRadius: 11,
+    backgroundFill: '#e6f4ff',
+    backgroundStroke: PENETRATION_THEME.badgeFill,
+    backgroundLineWidth: 2,
+    fill: PENETRATION_THEME.badgeFill,
     textAlign: 'center' as const,
     textBaseline: 'middle' as const,
   }
@@ -179,7 +231,7 @@ function collapseExpandBadge(
 
   const nodeId = String(datum.id)
   if (lazyLoadingNodeId === nodeId) {
-    return [createCollapseBadge(datum, '…')]
+    return [createLoadingBadge(datum)]
   }
 
   const collapsed = !!datum.style?.collapsed
@@ -232,23 +284,14 @@ async function runWithVisibilityAnimation(graph: G6Graph, task: () => Promise<vo
   }
 }
 
-export interface CompactBoxEquityGraphOptions {
-  onLazyLoadingChange?: (loading: boolean) => void
-}
-
 export async function createCompactBoxEquityGraph(
   container: HTMLElement,
   tree: InvestTreeData = investTreeInitialData,
-  options: CompactBoxEquityGraphOptions = {},
 ): Promise<G6Graph> {
   let graph!: G6Graph
   /** 全局仅允许一个懒加载任务进行 */
   let lazyLoadingNodeId: string | null = null
   let badgeVersion = 0
-
-  function setLazyLoading(loading: boolean) {
-    options.onLazyLoadingChange?.(loading)
-  }
 
   async function refreshBadges(nodeIds?: string[]) {
     badgeVersion += 1
@@ -267,7 +310,7 @@ export async function createCompactBoxEquityGraph(
 
     if (!collapsed) {
       await runWithVisibilityAnimation(graph, async () => {
-        await graph.collapseElement(nodeId, { animation: true, align: true })
+        await graph.collapseElement(nodeId, EXPAND_COLLAPSE_OPTIONS)
         await refreshBadges([nodeId])
       })
       return
@@ -278,30 +321,35 @@ export async function createCompactBoxEquityGraph(
 
     if (!loaded && lazy) {
       lazyLoadingNodeId = nodeId
-      setLazyLoading(true)
       await refreshBadges([nodeId])
-      await runWithVisibilityAnimation(graph, async () => {
-        try {
-          const children = await fetchInvestChildren(nodeId)
-          if (children.length === 0) {
-            graph.updateNodeData([{ id: nodeId, data: { ...nodeData.data, hasChildren: false } }])
-            return
-          }
-          const childIds = children.map((child) => child.id)
+
+      try {
+        const children = await fetchInvestChildren(nodeId)
+
+        lazyLoadingNodeId = null
+
+        if (children.length === 0) {
+          graph.updateNodeData([{ id: nodeId, data: { ...nodeData.data, hasChildren: false } }])
+          await refreshBadges([nodeId])
+          return
+        }
+
+        const childIds = children.map((child) => child.id)
+        await runWithVisibilityAnimation(graph, async () => {
           graph.addChildrenData(nodeId, children.map(toLazyChildNodeData))
           patchTreeEdgePorts(graph, nodeId, childIds)
-          await graph.expandElement(nodeId, { animation: true, align: true })
-        } finally {
-          lazyLoadingNodeId = null
-          setLazyLoading(false)
-          await refreshBadges([nodeId])
-        }
-      })
+          await graph.expandElement(nodeId, EXPAND_COLLAPSE_OPTIONS)
+        })
+        await refreshBadges([nodeId])
+      } catch {
+        lazyLoadingNodeId = null
+        await refreshBadges([nodeId])
+      }
       return
     }
 
     await runWithVisibilityAnimation(graph, async () => {
-      await graph.expandElement(nodeId, { animation: true, align: true })
+      await graph.expandElement(nodeId, EXPAND_COLLAPSE_OPTIONS)
       await refreshBadges([nodeId])
     })
   }
@@ -312,6 +360,9 @@ export async function createCompactBoxEquityGraph(
     height: container.clientHeight || 600,
     padding: 40,
     background: 'transparent',
+    animation: {
+      duration: VISIBILITY_ANIM_DURATION,
+    },
     data: toGraphData(tree),
     layout: {
       type: 'compact-box',
@@ -330,7 +381,6 @@ export async function createCompactBoxEquityGraph(
       style: {
         size: [NODE_W, NODE_H],
         radius: NODE_RADIUS,
-        lineWidth: 1,
         zIndex: COMPACT_BOX_NODE_ZINDEX,
         fill: (d) => {
           const data = getNodeData(d)
@@ -339,6 +389,22 @@ export async function createCompactBoxEquityGraph(
         stroke: (d) => {
           const data = getNodeData(d)
           return nodeColors(data.position as string | undefined, data.kind as string | undefined).stroke
+        },
+        lineWidth: (d) => {
+          const data = getNodeData(d)
+          return nodeColors(data.position as string | undefined, data.kind as string | undefined).lineWidth
+        },
+        shadowColor: (d) => {
+          const data = getNodeData(d)
+          return nodeColors(data.position as string | undefined, data.kind as string | undefined).shadowColor
+        },
+        shadowBlur: (d) => {
+          const data = getNodeData(d)
+          return nodeColors(data.position as string | undefined, data.kind as string | undefined).shadowBlur
+        },
+        shadowOffsetY: (d) => {
+          const data = getNodeData(d)
+          return nodeColors(data.position as string | undefined, data.kind as string | undefined).shadowOffsetY
         },
         labelText: (d) => {
           const data = getNodeData(d)
@@ -362,9 +428,15 @@ export async function createCompactBoxEquityGraph(
         badges: (datum) => collapseExpandBadge(datum, lazyLoadingNodeId, badgeVersion),
         ports: [{ placement: 'top' }, { placement: 'bottom' }],
       },
+      animation: NODE_VISIBILITY_ANIMATION,
       state: {
         active: {
           halo: false,
+          stroke: PENETRATION_THEME.primary,
+          lineWidth: 2,
+          shadowColor: 'rgba(24, 144, 255, 0.45)',
+          shadowBlur: 20,
+          shadowOffsetY: 6,
         },
       },
     },
@@ -390,11 +462,7 @@ export async function createCompactBoxEquityGraph(
           zIndex: 3,
         },
       },
-      animation: {
-        collapse: [{ fields: ['sourceNode', 'targetNode'] }],
-        expand: [{ fields: ['sourceNode', 'targetNode'] }],
-        update: [{ fields: ['sourceNode', 'targetNode'] }],
-      },
+      animation: EDGE_VISIBILITY_ANIMATION,
     },
     behaviors: [
       {
