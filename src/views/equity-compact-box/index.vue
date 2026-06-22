@@ -3,7 +3,6 @@
     <header class="penetration-toolbar">
       <div class="penetration-toolbar__left">
         <RouterLink to="/" class="penetration-toolbar__back">← 返回</RouterLink>
-        <h1 class="penetration-toolbar__title">股权穿透图</h1>
       </div>
       <div class="penetration-toolbar__search">
         <input
@@ -20,7 +19,6 @@
 
     <section class="penetration-body">
       <div ref="chartRef" class="penetration-chart">
-        <div class="penetration-watermark" aria-hidden="true">穿透图</div>
 
         <ul class="penetration-legend" aria-label="节点类型说明">
           <li class="penetration-legend__item">

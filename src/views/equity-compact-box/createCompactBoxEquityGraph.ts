@@ -93,6 +93,7 @@ function canShowExpandBadge(datum: NodeData) {
 
 function toGraphData(tree: InvestTreeData) {
   const data = treeToGraphData(tree)
+  console.log('treeToGraphData转换后的数据', data);
 
   for (const node of data.nodes ?? []) {
     if (canShowExpandBadge(node as NodeData)) {

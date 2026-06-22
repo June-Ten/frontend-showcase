@@ -95,7 +95,8 @@
                 'project-card__thumb--equity':
                   project.thumbType === 'equity' ||
                   project.thumbType === 'sign' ||
-                  project.thumbType === 'viz',
+                  project.thumbType === 'viz' ||
+                  project.thumbType === 'corporate',
               }"
               :style="project.thumbGradient ? { background: project.thumbGradient } : undefined"
             >
@@ -115,6 +116,12 @@
                 v-if="project.thumbType === 'viz'"
                 class="project-card__equity-cover"
                 :src="bigScreenCoverImg"
+                alt=""
+              />
+              <img
+                v-if="project.thumbType === 'corporate'"
+                class="project-card__equity-cover"
+                :src="corporateCoverImg"
                 alt=""
               />
             </div>
@@ -143,6 +150,7 @@ import deskImg from '../../assets/img/desk.png'
 import bigScreenCoverImg from '../../assets/img/bigscreen/big_screen_cover.png'
 import equityCoverImg from '../../assets/img/equity_cover.png'
 import signCoverImg from '../../assets/img/sign_cover.png'
+import corporateCoverImg from '../../assets/img/official_website_cover.png'
 
 const deskBackground = `url(${deskImg})`
 
@@ -227,9 +235,10 @@ const projects = [
   },
   {
     title: '企业官网设计',
-    description: '简洁现代的企业官网设计与实现',
-    tags: ['React', 'TailwindCSS'],
-    thumbGradient: 'linear-gradient(135deg, #134e4a 0%, #0f172a 50%, #1e3a5f 100%)',
+    description: '蓝白主题企业官网，城市天际线 Hero、毛玻璃价值条与全站动效',
+    tags: ['Vue3', 'SCSS', 'GSAP'],
+    thumbType: 'corporate' as const,
+    href: '/corporate',
   },
   {
     title: '待办事项应用',

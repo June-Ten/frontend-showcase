@@ -30,7 +30,48 @@ const routes = [
     path: '/sign',
     name: 'Sign',
     component: () => import('../views/sign/index.vue')
-  }
+  },
+  {
+    path: '/corporate',
+    component: () => import('../views/corporate/CorporateLayout.vue'),
+    children: [
+      {
+        path: '',
+        name: 'Corporate',
+        component: () => import('../views/corporate/pages/Home.vue'),
+      },
+      {
+        path: 'about',
+        name: 'CorporateAbout',
+        component: () => import('../views/corporate/pages/About.vue'),
+      },
+      {
+        path: 'products',
+        name: 'CorporateProducts',
+        component: () => import('../views/corporate/pages/Products.vue'),
+      },
+      {
+        path: 'solutions',
+        name: 'CorporateSolutions',
+        component: () => import('../views/corporate/pages/Solutions.vue'),
+      },
+      {
+        path: 'news',
+        name: 'CorporateNews',
+        component: () => import('../views/corporate/pages/News.vue'),
+      },
+      {
+        path: 'careers',
+        name: 'CorporateCareers',
+        component: () => import('../views/corporate/pages/Careers.vue'),
+      },
+      {
+        path: 'contact',
+        name: 'CorporateContact',
+        component: () => import('../views/corporate/pages/Contact.vue'),
+      },
+    ],
+  },
 ]
 
 export const router = createRouter(
