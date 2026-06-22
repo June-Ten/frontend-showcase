@@ -147,11 +147,15 @@ const valueProps = [
   flex: 1;
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  align-self: stretch;
+  width: 100%;
   padding: 40px 24px 180px;
 }
 
 .corp-home__content {
   max-width: 560px;
+  text-align: left;
 }
 
 .corp-home__title {
