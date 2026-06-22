@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import coverImg from '../../../assets/img/official_website_cover_bg.png'
+import coverImg from '../../../assets/img/official_website_cover_bg.webp'
 
 const solutions = [
   {

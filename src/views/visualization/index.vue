@@ -111,7 +111,7 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
-import backgroundImg from '../../assets/img/bigscreen/bigscreen_bg.png'
+import backgroundImg from '../../assets/img/bigscreen/bigscreen_bg.webp'
 import China3dMap from './China3dMap.vue'
 
 type ChartElement = HTMLElement | null

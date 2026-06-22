@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import viteLogo from '../assets/vite.svg?url'
-import heroImg from '../assets/hero.png'
+import heroImg from '../assets/hero.webp'
 import vueLogo from '../assets/vue.svg?url'
 
 const count = ref(0)

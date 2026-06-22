@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import heroCoverImg from '../../../assets/img/official_website_cover_bg.png'
+import heroCoverImg from '../../../assets/img/official_website_cover_bg.webp'
 
 const heroBackground = `url(${heroCoverImg})`
 

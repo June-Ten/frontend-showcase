@@ -2,7 +2,7 @@ import { geoMercator } from 'd3'
 import type { FeatureCollection, Geometry, Position } from 'geojson'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
-import terrainTextureUrl from '../../assets/map/img/地理纹路.png'
+import terrainTextureUrl from '../../assets/map/img/地理纹路.webp'
 
 type Ring = Position[]
 type Polygon = Ring[]

@@ -146,11 +146,11 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Typed from 'typed.js'
 import AppIcon from '../../components/AppIcon.vue'
-import deskImg from '../../assets/img/desk.png'
-import bigScreenCoverImg from '../../assets/img/bigscreen/big_screen_cover.png'
-import equityCoverImg from '../../assets/img/equity_cover.png'
-import signCoverImg from '../../assets/img/sign_cover.png'
-import corporateCoverImg from '../../assets/img/official_website_cover.png'
+import deskImg from '../../assets/img/desk.webp'
+import bigScreenCoverImg from '../../assets/img/bigscreen/big_screen_cover.webp'
+import equityCoverImg from '../../assets/img/equity_cover.webp'
+import signCoverImg from '../../assets/img/sign_cover.webp'
+import corporateCoverImg from '../../assets/img/official_website_cover.webp'
 
 const deskBackground = `url(${deskImg})`
 
