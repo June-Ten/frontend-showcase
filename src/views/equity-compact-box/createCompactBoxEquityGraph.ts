@@ -36,7 +36,7 @@ const NODE_RADIUS = 10
 
 /** 折叠/展开动画：默认 500ms 偏慢，且 align 会带动画布平移 */
 const VISIBILITY_ANIM_DURATION = 300
-const EXPAND_COLLAPSE_OPTIONS = { animation: true, align: false } as const
+const EXPAND_COLLAPSE_OPTIONS = { animation: true, align: true } as const
 
 const NODE_VISIBILITY_ANIMATION: Record<string, AnimationOptions[]> = {
   expand: [
