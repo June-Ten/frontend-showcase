@@ -139,11 +139,9 @@ $accent: #1a5fb4;
   background: $bg;
   color: $text;
   font-family:
-    'Inter',
     system-ui,
     -apple-system,
     'Segoe UI',
-    Roboto,
     'PingFang SC',
     'Microsoft YaHei',
     sans-serif;

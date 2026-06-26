@@ -22,6 +22,11 @@ const routes = [
     component: () => import('../views/equity-compact-box/index.vue')
   },
   {
+    path: '/compliance-mindmap',
+    name: 'ComplianceMindmap',
+    component: () => import('../views/compliance-mindmap/index.vue')
+  },
+  {
     path: '/equity-d3',
     name: 'EquityD3',
     component: () => import('../views/equityD3/index.vue')

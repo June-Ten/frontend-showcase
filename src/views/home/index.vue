@@ -220,6 +220,13 @@ const projects = [
     href: '/equity-compact-box',
   },
   {
+    title: '合规分析思维导图',
+    description: 'G6 Dagre 横向流程图，rect 节点与多路径汇合',
+    tags: ['Vue3', 'G6', 'Dagre'],
+    thumbGradient: 'linear-gradient(135deg, #e6f4ff 0%, #fffbe6 50%, #fff1f0 100%)',
+    href: '/compliance-mindmap',
+  },
+  {
     title: 'PDF 签署',
     description: 'PDF 预览与电子盖章，支持任意位置盖章与骑缝章',
     tags: ['Vue3', 'pdfh5', 'TypeScript'],
@@ -270,13 +277,7 @@ $container: 1400px;
   min-height: 100vh;
   background: $bg;
   color: $text;
-  font-family:
-    'Inter',
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
 .main {
