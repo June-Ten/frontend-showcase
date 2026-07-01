@@ -83,10 +83,10 @@
         </div>
         <div class="featured__grid">
           <component
-            :is="project.href ? 'RouterLink' : 'article'"
+            :is="getProjectCardTag(project)"
             v-for="project in projects"
             :key="project.title"
-            v-bind="project.href ? { to: project.href } : {}"
+            v-bind="getProjectCardAttrs(project)"
             class="project-card"
           >
             <div
@@ -96,7 +96,8 @@
                   project.thumbType === 'equity' ||
                   project.thumbType === 'sign' ||
                   project.thumbType === 'viz' ||
-                  project.thumbType === 'corporate',
+                  project.thumbType === 'corporate' ||
+                  project.thumbType === 'doc',
               }"
               :style="project.thumbGradient ? { background: project.thumbGradient } : undefined"
             >
@@ -122,6 +123,12 @@
                 v-if="project.thumbType === 'corporate'"
                 class="project-card__equity-cover"
                 :src="corporateCoverImg"
+                alt=""
+              />
+              <img
+                v-if="project.thumbType === 'doc'"
+                class="project-card__equity-cover"
+                :src="docCoverImg"
                 alt=""
               />
             </div>
@@ -151,6 +158,7 @@ import bigScreenCoverImg from '../../assets/img/bigscreen/big_screen_cover.webp'
 import equityCoverImg from '../../assets/img/equity_cover.webp'
 import signCoverImg from '../../assets/img/sign_cover.webp'
 import corporateCoverImg from '../../assets/img/official_website_cover.webp'
+import docCoverImg from '../../assets/img/doc_cover.png'
 
 const deskBackground = `url(${deskImg})`
 
@@ -220,18 +228,18 @@ const projects = [
     href: '/equity-compact-box',
   },
   {
-    title: '合规分析思维导图',
-    description: 'G6 Dagre 横向流程图，rect 节点与多路径汇合',
-    tags: ['Vue3', 'G6', 'Dagre'],
-    thumbGradient: 'linear-gradient(135deg, #e6f4ff 0%, #fffbe6 50%, #fff1f0 100%)',
-    href: '/compliance-mindmap',
-  },
-  {
     title: 'PDF 签署',
     description: 'PDF 预览与电子盖章，支持任意位置盖章与骑缝章',
     tags: ['Vue3', 'pdfh5', 'TypeScript'],
     thumbType: 'sign' as const,
     href: '/sign',
+  },
+  {
+    title: 'DOCX 批注',
+    description: 'Word 文档在线批注预览，支持添加与查看批注',
+    tags: ['Vue3', 'DOCX', 'TypeScript'],
+    thumbType: 'doc' as const,
+    href: 'https://docx-annotation-1.onrender.com/',
   },
   {
     title: '全国综合态势感知大屏',
@@ -260,6 +268,29 @@ const projects = [
     thumbGradient: 'linear-gradient(135deg, #431407 0%, #1c1917 50%, #292524 100%)',
   },
 ]
+
+type Project = (typeof projects)[number]
+
+function isExternalHref(href: string) {
+  return href.startsWith('http://') || href.startsWith('https://')
+}
+
+function getProjectCardTag(project: Project) {
+  if (!project.href) return 'article'
+  return isExternalHref(project.href) ? 'a' : 'RouterLink'
+}
+
+function getProjectCardAttrs(project: Project) {
+  if (!project.href) return {}
+  if (isExternalHref(project.href)) {
+    return {
+      href: project.href,
+      target: '_blank',
+      rel: 'noopener noreferrer',
+    }
+  }
+  return { to: project.href }
+}
 
 </script>
 
