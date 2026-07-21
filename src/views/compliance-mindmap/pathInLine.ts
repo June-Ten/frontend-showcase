@@ -3,7 +3,7 @@ import { CubicHorizontal, ExtensionCategory, register } from '@antv/g6'
 /** 连线生长动画时长（毫秒） */
 export const EDGE_GROW_DURATION_MS = 1200
 
-const EDGE_DASH: [number, number] = [4, 4]
+const EDGE_DASH: [number, number] = [5, 5]
 
 interface GrowablePath {
   getTotalLength(): number

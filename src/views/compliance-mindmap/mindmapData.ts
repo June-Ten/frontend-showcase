@@ -260,13 +260,13 @@ export function buildComplianceGraphData(): GraphData {
 }
 
 export const NODE_SIZE: Record<MindmapNodeKind, [number, number]> = {
-  file: [164, 52],
-  section: [224, 108],
-  policy: [230, 126],
-  'analysis-blue': [246, 120],
-  'analysis-yellow': [246, 120],
-  advice: [228, 110],
-  conclusion: [220, 112],
+  file: [168, 64],
+  section: [240, 124],
+  policy: [244, 140],
+  'analysis-blue': [252, 136],
+  'analysis-yellow': [252, 136],
+  advice: [236, 126],
+  conclusion: [228, 128],
 }
 
 export function getNodeSize(kind: MindmapNodeKind): [number, number] {

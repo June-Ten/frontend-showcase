@@ -54,7 +54,7 @@ async function handlePlay() {
   if (!graph || isPlaying.value) return
   isPlaying.value = true
   try {
-    await playComplianceGraphGeneration(graph)
+    await playComplianceGraphGeneration(graph, chartRef.value!)
   } finally {
     isPlaying.value = false
   }
@@ -96,7 +96,10 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f1f5f9;
+  background:
+    radial-gradient(ellipse 80% 50% at 15% 0%, rgba(147, 197, 253, 0.35), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(186, 230, 253, 0.3), transparent 55%),
+    linear-gradient(180deg, #e8f2ff 0%, #f3f8ff 48%, #f8fbff 100%);
 }
 
 .mindmap-toolbar {
@@ -104,17 +107,18 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 16px;
   padding: 12px 20px;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.82);
+  border-bottom: 1px solid rgba(147, 197, 253, 0.35);
+  backdrop-filter: blur(10px);
   flex-shrink: 0;
 
   &__back {
     font-size: 14px;
-    color: #64748b;
+    color: #5f7f9d;
     text-decoration: none;
 
     &:hover {
-      color: #1677ff;
+      color: #3b8cff;
     }
   }
 
@@ -122,8 +126,9 @@ onBeforeUnmount(() => {
     flex: 1;
     margin: 0;
     font-size: 16px;
-    font-weight: 600;
-    color: #0f172a;
+    font-weight: 700;
+    color: #1a3b66;
+    letter-spacing: 0.02em;
   }
 
   &__actions {
@@ -135,14 +140,17 @@ onBeforeUnmount(() => {
   &__action {
     padding: 6px 14px;
     font-size: 13px;
-    color: #1677ff;
-    background: #e6f4ff;
-    border: 1px solid #91caff;
-    border-radius: 6px;
+    color: #3b8cff;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(147, 197, 253, 0.65);
+    border-radius: 999px;
     cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 
     &:hover:not(:disabled) {
-      background: #bae0ff;
+      background: #f0f7ff;
+      border-color: #93c5fd;
+      box-shadow: 0 4px 12px rgba(59, 140, 255, 0.12);
     }
 
     &:disabled {
@@ -152,11 +160,13 @@ onBeforeUnmount(() => {
 
     &--primary {
       color: #fff;
-      background: #1677ff;
-      border-color: #1677ff;
+      background: linear-gradient(135deg, #3b8cff 0%, #5ba3ff 100%);
+      border-color: transparent;
+      box-shadow: 0 6px 16px rgba(59, 140, 255, 0.28);
 
       &:hover:not(:disabled) {
-        background: #4096ff;
+        background: linear-gradient(135deg, #2f7ef0 0%, #4d98ff 100%);
+        box-shadow: 0 8px 20px rgba(59, 140, 255, 0.34);
       }
     }
   }
@@ -165,15 +175,31 @@ onBeforeUnmount(() => {
 .mindmap-body {
   flex: 1;
   min-height: 0;
-  padding: 12px;
+  padding: 16px;
 }
 
 .mindmap-chart {
+  position: relative;
   width: 100%;
   height: 100%;
-  border-radius: 10px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse 70% 45% at 25% 15%, rgba(198, 225, 255, 0.5), transparent 58%),
+    radial-gradient(ellipse 55% 40% at 85% 85%, rgba(186, 218, 255, 0.38), transparent 52%),
+    linear-gradient(180deg, #eef5ff 0%, #f8fbff 62%, #ffffff 100%);
+  border: 1px solid rgba(168, 206, 245, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 12px 32px rgba(26, 59, 102, 0.08);
   overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: auto -8% -18% -8%;
+    height: 42%;
+    background: radial-gradient(ellipse at center, rgba(147, 197, 253, 0.22), transparent 68%);
+    pointer-events: none;
+  }
 }
 </style>

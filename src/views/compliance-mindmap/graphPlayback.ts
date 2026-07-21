@@ -40,31 +40,53 @@ export function cancelComplianceGraphPlayback() {
   playbackRunId += 1
 }
 
-async function revealPlaceholderNode(graph: G6Graph, nodeId: string) {
-  const layout = getComplianceLayout()
-  if (!graph.hasNode(nodeId)) {
-    graph.addNodeData([
-      getComplianceNodeDatum(nodeId, layout, { opacity: 0 }),
-    ])
-    await graph.draw()
-  }
+// 通过 innerHTML 里写入的 data-node-id 属性查找 HTML 节点卡片 DOM
+function getNodeCardEl(container: HTMLElement, nodeId: string): HTMLElement | null {
+  return container.querySelector<HTMLElement>(`[data-node-id="${nodeId}"]`)
 }
 
-async function growEdge(graph: G6Graph, source: string, target: string) {
+// 立即隐藏（在 draw 完成、G6 opacity 动画开始前就生效）
+function hideNodeCard(container: HTMLElement, nodeId: string) {
+  const el = getNodeCardEl(container, nodeId)
+  if (el) el.style.opacity = '0'
+}
+
+// 以 CSS transition 淡入
+function showNodeCard(container: HTMLElement, nodeId: string) {
+  const el = getNodeCardEl(container, nodeId)
+  if (el) el.style.opacity = '1'
+}
+
+async function growEdge(graph: G6Graph, container: HTMLElement, source: string, target: string) {
   const edgeId = complianceEdgeId(source, target)
   if (graph.hasEdge(edgeId)) return
 
-  await revealPlaceholderNode(graph, target)
+  const layout = getComplianceLayout()
+
+  // 先把目标节点加入图（位置正确，G6 需要它来计算边的端点）
+  if (!graph.hasNode(target)) {
+    graph.addNodeData([getComplianceNodeDatum(target, layout)])
+  }
+
+  // 添加边，触发线生长动画；同时立即把节点卡片隐藏
   graph.addEdgeData([getComplianceEdgeDatum(source, target)])
   await graph.draw()
-  await delay(EDGE_GROW_DURATION_MS)
-  await revealNode(graph, target)
-}
 
-async function revealNode(graph: G6Graph, nodeId: string) {
-  await revealPlaceholderNode(graph, nodeId)
-  graph.updateNodeData([{ id: nodeId, style: { opacity: 1 } }])
-  await graph.draw()
+  // draw() 完成后 DOM 已存在，立即用 opacity:0 遮住（transition 设为 none 跳过淡入）
+  const el = getNodeCardEl(container, target)
+  if (el) {
+    el.style.transition = 'none'
+    el.style.opacity = '0'
+  }
+
+  // 等待线生长动画完成后再淡入节点
+  await delay(EDGE_GROW_DURATION_MS)
+
+  // 恢复 transition 并淡入
+  if (el) {
+    el.style.transition = 'opacity 0.28s ease-out'
+    el.style.opacity = '1'
+  }
 }
 
 async function restoreRootState(graph: G6Graph) {
@@ -78,7 +100,7 @@ export async function resetComplianceGraphPlayback(graph: G6Graph) {
   await restoreRootState(graph)
 }
 
-export async function playComplianceGraphGeneration(graph: G6Graph) {
+export async function playComplianceGraphGeneration(graph: G6Graph, container: HTMLElement) {
   cancelComplianceGraphPlayback()
   const runId = playbackRunId
 
@@ -89,7 +111,7 @@ export async function playComplianceGraphGeneration(graph: G6Graph) {
       if (runId !== playbackRunId) return
 
       if (step.kind === 'edge') {
-        await growEdge(graph, step.source, step.target)
+        await growEdge(graph, container, step.source, step.target)
         await delay(STEP_GAP_MS)
       }
     }
