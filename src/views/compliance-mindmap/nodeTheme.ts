@@ -36,84 +36,80 @@ const VERDICT_VISUAL: Record<ComplianceVerdict, Pick<NodeVisual, 'fill' | 'strok
 
 const BASE_VISUALS: Record<MindmapNodeKind, NodeVisual> = {
   file: {
-    fill: '#ffffff',
-    stroke: '#d9d9d9',
-    labelFill: '#434343',
-    lineWidth: 1,
-    radius: 6,
-    labelFontSize: 12,
-    labelFontWeight: 500,
-  },
-  section: {
-    fill: '#ffffff',
-    stroke: '#91caff',
-    labelFill: '#1f1f1f',
-    lineWidth: 1,
-    radius: 6,
+    fill: '#f8fbff',
+    stroke: '#b8d8f4',
+    labelFill: '#284760',
+    lineWidth: 1.2,
+    radius: 10,
     labelFontSize: 12,
     labelFontWeight: 600,
   },
-  policy: {
-    fill: '#fffbe6',
-    stroke: '#ffe58f',
-    labelFill: '#614700',
-    lineWidth: 1,
-    radius: 6,
+  section: {
+    fill: '#f3f8ff',
+    stroke: '#a9cff2',
+    labelFill: '#1f3b57',
+    lineWidth: 1.2,
+    radius: 10,
     labelFontSize: 11,
+    labelFontWeight: 600,
+  },
+  policy: {
+    fill: '#fffaf0',
+    stroke: '#ecd79a',
+    labelFill: '#68551d',
+    lineWidth: 1.2,
+    radius: 10,
+    labelFontSize: 10,
     labelFontWeight: 500,
   },
   'analysis-blue': {
-    fill: '#ffffff',
-    stroke: '#91caff',
-    labelFill: '#434343',
-    lineWidth: 1,
-    radius: 6,
-    labelFontSize: 11,
+    fill: '#f1f8ff',
+    stroke: '#9fcbed',
+    labelFill: '#24516f',
+    lineWidth: 1.2,
+    radius: 10,
+    labelFontSize: 10,
     labelFontWeight: 500,
   },
   'analysis-yellow': {
-    fill: '#fffef6',
-    stroke: '#ffe58f',
-    labelFill: '#434343',
-    lineWidth: 1,
-    radius: 6,
-    labelFontSize: 11,
+    fill: '#fff9ed',
+    stroke: '#efd38b',
+    labelFill: '#6b5721',
+    lineWidth: 1.2,
+    radius: 10,
+    labelFontSize: 10,
     labelFontWeight: 500,
   },
   advice: {
-    fill: '#ffffff',
-    stroke: '#91caff',
-    labelFill: '#595959',
-    lineWidth: 1,
-    radius: 6,
-    labelFontSize: 11,
+    fill: '#f1fbf9',
+    stroke: '#a7dcd5',
+    labelFill: '#285e59',
+    lineWidth: 1.2,
+    radius: 10,
+    labelFontSize: 10,
     labelFontWeight: 500,
   },
   conclusion: {
-    fill: '#ffffff',
-    stroke: '#d9d9d9',
-    labelFill: '#434343',
-    lineWidth: 1,
-    radius: 6,
-    labelFontSize: 12,
+    fill: '#fff3f4',
+    stroke: '#efb8bd',
+    labelFill: '#8a3039',
+    lineWidth: 1.2,
+    radius: 10,
+    labelFontSize: 11,
     labelFontWeight: 600,
   },
 }
 
 export function getNodeVisual(payload: MindmapNodePayload): NodeVisual {
   const base = BASE_VISUALS[payload.kind] ?? BASE_VISUALS.file
-  if (!payload.verdict) return base
-
-  const verdictStyle = VERDICT_VISUAL[payload.verdict]
-  return {
-    ...base,
-    ...verdictStyle,
-    labelFontWeight: payload.kind === 'conclusion' ? 600 : base.labelFontWeight,
-  }
+  if (!payload.verdict || payload.kind !== 'conclusion') return base
+  return { ...base, ...VERDICT_VISUAL[payload.verdict] }
 }
 
 export function formatNodeLabel(payload: MindmapNodePayload): string {
   const lines = [payload.title]
+
+  if (payload.content) lines.push(payload.content)
 
   if (payload.verdict) {
     lines.push(VERDICT_LABEL[payload.verdict])

@@ -1,9 +1,9 @@
-import { ExtensionCategory, Line, register } from '@antv/g6'
+import { CubicHorizontal, ExtensionCategory, register } from '@antv/g6'
 
 /** 连线生长动画时长（毫秒） */
 export const EDGE_GROW_DURATION_MS = 1200
 
-const EDGE_DASH: [number, number] = [5, 4]
+const EDGE_DASH: [number, number] = [4, 4]
 
 interface GrowablePath {
   getTotalLength(): number
@@ -14,7 +14,7 @@ interface GrowablePath {
   ): { finished: Promise<unknown> } | null
 }
 
-class PathInLine extends Line {
+class PathInLine extends CubicHorizontal {
   onCreate(): void {
     const shape = this.getShape('key') as unknown as GrowablePath
     const length = shape.getTotalLength()

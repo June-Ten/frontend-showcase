@@ -97,7 +97,9 @@
                   project.thumbType === 'sign' ||
                   project.thumbType === 'viz' ||
                   project.thumbType === 'corporate' ||
-                  project.thumbType === 'doc',
+                  project.thumbType === 'doc' ||
+                  project.thumbType === 'chat' ||
+                  project.thumbType === 'mindmap',
               }"
               :style="project.thumbGradient ? { background: project.thumbGradient } : undefined"
             >
@@ -131,6 +133,18 @@
                 :src="docCoverImg"
                 alt=""
               />
+              <img
+                v-if="project.thumbType === 'chat'"
+                class="project-card__equity-cover"
+                :src="chatCoverImg"
+                alt=""
+              />
+              <img
+                v-if="project.thumbType === 'mindmap'"
+                class="project-card__equity-cover"
+                :src="chainCoverImg"
+                alt=""
+              />
             </div>
             <h3 class="project-card__title">{{ project.title }}</h3>
             <p class="project-card__desc">{{ project.description }}</p>
@@ -159,6 +173,8 @@ import equityCoverImg from '../../assets/img/equity_cover.webp'
 import signCoverImg from '../../assets/img/sign_cover.webp'
 import corporateCoverImg from '../../assets/img/official_website_cover.webp'
 import docCoverImg from '../../assets/img/doc_cover.png'
+import chatCoverImg from '../../assets/img/chatgpt.png'
+import chainCoverImg from '../../assets/img/chain_cover.png'
 
 const deskBackground = `url(${deskImg})`
 
@@ -240,6 +256,20 @@ const projects = [
     tags: ['Vue3', 'DOCX', 'TypeScript'],
     thumbType: 'doc' as const,
     href: 'https://docx-annotation-1.onrender.com/',
+  },
+  {
+    title: 'AI 对话',
+    description: '类 ChatGPT 对话界面，SSE 流式输出，支持历史会话与快捷提示',
+    tags: ['Vue3', 'SSE', 'TypeScript'],
+    thumbType: 'chat' as const,
+    href: '/chat',
+  },
+  {
+    title: '合规分析思维导图',
+    description: 'G6 思维导图展示合规分析链路，支持播放生成与节点展开',
+    tags: ['Vue3', 'G6', 'TypeScript'],
+    thumbType: 'mindmap' as const,
+    href: '/compliance-mindmap',
   },
   {
     title: '全国综合态势感知大屏',

@@ -11,8 +11,6 @@ import {
 
 const STEP_GAP_MS = 80
 const LAYER_GAP_MS = 360
-const NODE_ANIM_MS = 300
-const FOCUS_ANIM_MS = 420
 
 let playbackRunId = 0
 let complianceLayout: ComplianceLayout | null = null
@@ -42,11 +40,6 @@ export function cancelComplianceGraphPlayback() {
   playbackRunId += 1
 }
 
-async function focusPlaybackNode(graph: G6Graph, nodeId: string) {
-  if (!graph.hasNode(nodeId)) return
-  await graph.focusElement(nodeId, { duration: FOCUS_ANIM_MS, easing: 'ease-out' })
-}
-
 async function revealPlaceholderNode(graph: G6Graph, nodeId: string) {
   const layout = getComplianceLayout()
   if (!graph.hasNode(nodeId)) {
@@ -65,7 +58,7 @@ async function growEdge(graph: G6Graph, source: string, target: string) {
   graph.addEdgeData([getComplianceEdgeDatum(source, target)])
   await graph.draw()
   await delay(EDGE_GROW_DURATION_MS)
-  await focusPlaybackNode(graph, target)
+  await revealNode(graph, target)
 }
 
 async function revealNode(graph: G6Graph, nodeId: string) {
@@ -98,9 +91,6 @@ export async function playComplianceGraphGeneration(graph: G6Graph) {
       if (step.kind === 'edge') {
         await growEdge(graph, step.source, step.target)
         await delay(STEP_GAP_MS)
-      } else {
-        await revealNode(graph, step.id)
-        await delay(NODE_ANIM_MS + STEP_GAP_MS)
       }
     }
 

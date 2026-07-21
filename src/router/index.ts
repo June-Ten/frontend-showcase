@@ -37,6 +37,11 @@ const routes = [
     component: () => import('../views/sign/index.vue')
   },
   {
+    path: '/chat',
+    name: 'Chat',
+    component: () => import('../views/chat/index.vue')
+  },
+  {
     path: '/corporate',
     component: () => import('../views/corporate/CorporateLayout.vue'),
     children: [
