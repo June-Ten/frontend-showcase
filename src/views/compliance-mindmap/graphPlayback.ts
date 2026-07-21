@@ -3,6 +3,7 @@ import type { ComplianceLayout } from './mindmapData'
 import { EDGE_GROW_DURATION_MS } from './pathInLine'
 import {
   COMPLIANCE_PLAYBACK_LAYERS,
+  buildEmptyGraphData,
   buildRootGraphData,
   complianceEdgeId,
   getComplianceEdgeDatum,
@@ -45,18 +46,6 @@ function getNodeCardEl(container: HTMLElement, nodeId: string): HTMLElement | nu
   return container.querySelector<HTMLElement>(`[data-node-id="${nodeId}"]`)
 }
 
-// 立即隐藏（在 draw 完成、G6 opacity 动画开始前就生效）
-function hideNodeCard(container: HTMLElement, nodeId: string) {
-  const el = getNodeCardEl(container, nodeId)
-  if (el) el.style.opacity = '0'
-}
-
-// 以 CSS transition 淡入
-function showNodeCard(container: HTMLElement, nodeId: string) {
-  const el = getNodeCardEl(container, nodeId)
-  if (el) el.style.opacity = '1'
-}
-
 async function growEdge(graph: G6Graph, container: HTMLElement, source: string, target: string) {
   const edgeId = complianceEdgeId(source, target)
   if (graph.hasEdge(edgeId)) return
@@ -90,9 +79,8 @@ async function growEdge(graph: G6Graph, container: HTMLElement, source: string, 
 }
 
 async function restoreRootState(graph: G6Graph) {
-  graph.setData(buildRootGraphData(getComplianceLayout()))
+  graph.setData(buildEmptyGraphData())
   await graph.render()
-  await graph.fitView({ when: 'always' })
 }
 
 export async function resetComplianceGraphPlayback(graph: G6Graph) {
@@ -106,6 +94,11 @@ export async function playComplianceGraphGeneration(graph: G6Graph, container: H
 
   await restoreRootState(graph)
   if (runId !== playbackRunId) return
+
+  graph.setData(buildRootGraphData(getComplianceLayout()))
+  await graph.render()
+  if (runId !== playbackRunId) return
+
   for (const layer of COMPLIANCE_PLAYBACK_LAYERS) {
     for (const step of layer.steps) {
       if (runId !== playbackRunId) return

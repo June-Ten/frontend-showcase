@@ -23,12 +23,12 @@ const VERDICT_BADGE: Record<ComplianceVerdict, { bg: string; color: string; bord
 
 const KIND_THEME: Record<MindmapNodeKind, NodeThemeTokens> = {
   file: {
-    accent: '#3b8cff',
-    accentSoft: 'rgba(59, 140, 255, 0.16)',
-    border: 'rgba(147, 197, 253, 0.55)',
-    titleColor: '#1a3b66',
-    bodyColor: '#5f7f9d',
-    background: 'rgba(255, 255, 255, 0.88)',
+    accent: '#1a6ff4',
+    accentSoft: 'rgba(26, 111, 244, 0.2)',
+    border: 'rgba(59, 140, 255, 0.6)',
+    titleColor: '#0f2a52',
+    bodyColor: '#3a6496',
+    background: '#ffffff',
   },
   section: {
     accent: '#3b8cff',
@@ -151,10 +151,10 @@ export function renderComplianceNodeHtml(payload: MindmapNodePayload, nodeId?: s
     ? `<div style="display:flex;align-items:center;gap:10px;">
         ${renderFileIcon(theme.accent)}
         <div style="min-width:0;">
-          <div style="font-size:13px;font-weight:700;color:${theme.titleColor};line-height:1.3;">
+          <div style="font-size:14px;font-weight:800;color:${theme.titleColor};line-height:1.3;letter-spacing:0.01em;">
             ${escapeHtml(payload.title)}
           </div>
-          ${payload.content ? `<div style="margin-top:2px;font-size:11px;color:${theme.bodyColor};">${escapeHtml(payload.content)}</div>` : ''}
+          ${payload.content ? `<div style="margin-top:3px;font-size:11.5px;font-weight:500;color:${theme.bodyColor};">${escapeHtml(payload.content)}</div>` : ''}
         </div>
       </div>`
     : `<div style="font-size:13px;font-weight:700;color:${theme.titleColor};line-height:1.35;">
@@ -175,6 +175,13 @@ export function renderComplianceNodeHtml(payload: MindmapNodePayload, nodeId?: s
 
   const verdictHtml = payload.verdict ? renderVerdictBadge(payload.verdict) : ''
 
+  const isFile = payload.kind === 'file'
+  const shadow = isFile
+    ? '0 4px 16px rgba(26, 111, 244, 0.18), 0 1px 4px rgba(26, 59, 102, 0.12), inset 0 1px 0 rgba(255, 255, 255, 1)'
+    : '0 8px 24px rgba(26, 59, 102, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.75)'
+  const borderWidth = isFile ? '1.5px' : '1px'
+  const backdropFilter = isFile ? 'none' : 'blur(12px)'
+
   const nodeIdAttr = nodeId ? ` data-node-id="${nodeId}"` : ''
   return `<div${nodeIdAttr} style="
     box-sizing:border-box;
@@ -183,10 +190,10 @@ export function renderComplianceNodeHtml(payload: MindmapNodePayload, nodeId?: s
     padding:12px 14px;
     border-radius:12px;
     background:${theme.background};
-    border:1px solid ${theme.border};
-    box-shadow:0 8px 24px rgba(26, 59, 102, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.75);
-    backdrop-filter:blur(12px);
-    -webkit-backdrop-filter:blur(12px);
+    border:${borderWidth} solid ${theme.border};
+    box-shadow:${shadow};
+    backdrop-filter:${backdropFilter};
+    -webkit-backdrop-filter:${backdropFilter};
     font-family:'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     user-select:none;
     position:relative;

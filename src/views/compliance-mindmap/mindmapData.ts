@@ -38,7 +38,7 @@ export function complianceEdgeId(source: string, target: string) {
 }
 
 const complianceNodeDefs: ComplianceNodeDef[] = [
-  { id: 'root', data: { kind: 'file', title: '资质证书.docx', content: '待核验材料' } },
+  { id: 'root', data: { kind: 'file', title: '资质证书.docx' } },
   {
     id: 'summary',
     data: {
@@ -237,6 +237,13 @@ export function getComplianceEdgeDatum(source: string, target: string): EdgeData
 export function buildRootGraphData(layout: ComplianceLayout): GraphData {
   return {
     nodes: [getComplianceNodeDatum('root', layout)],
+    edges: [],
+  }
+}
+
+export function buildEmptyGraphData(): GraphData {
+  return {
+    nodes: [],
     edges: [],
   }
 }

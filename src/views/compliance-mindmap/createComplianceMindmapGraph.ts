@@ -7,7 +7,7 @@ import {
   type NodeOptions,
 } from '@antv/g6'
 import { computeComplianceLayout } from './complianceLayout'
-import { buildRootGraphData, getNodeSize, type MindmapNodePayload } from './mindmapData'
+import { buildEmptyGraphData, getNodeSize, type MindmapNodePayload } from './mindmapData'
 import { setComplianceLayout } from './graphPlayback'
 import { getHtmlNodeOffset, renderComplianceNodeHtml } from './renderComplianceNodeHtml'
 import { registerPathInLineEdge } from './pathInLine'
@@ -44,7 +44,7 @@ export async function createComplianceMindmapGraph(container: HTMLElement): Prom
     background: 'transparent',
     devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
     zoomRange: [0.35, 2.5],
-    data: buildRootGraphData(layout),
+    data: buildEmptyGraphData(),
     animation: {
       duration: 300,
       easing: 'ease-out',
@@ -84,6 +84,5 @@ export async function createComplianceMindmapGraph(container: HTMLElement): Prom
   })
 
   await graph.render()
-  await graph.fitView({ when: 'always' })
   return graph
 }
