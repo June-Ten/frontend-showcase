@@ -1,3 +1,4 @@
+import { Renderer as SVGRenderer } from '@antv/g-svg'
 import {
   Graph,
   type AnimationOptions,
@@ -44,6 +45,7 @@ export async function createComplianceMindmapGraph(container: HTMLElement): Prom
     background: 'transparent',
     devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
     zoomRange: [0.35, 2.5],
+    renderer: () => new SVGRenderer(),
     data: buildEmptyGraphData(),
     animation: {
       duration: 300,

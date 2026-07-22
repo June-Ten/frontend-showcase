@@ -35,6 +35,15 @@ export function getComplianceLayout() {
 
 export async function fitComplianceMindmapView(graph: G6Graph) {
   await graph.fitView({ when: 'always' })
+  const graphWithZoom = graph as G6Graph & {
+    getZoom?: () => number
+    zoomTo?: (zoom: number, options?: { duration?: number }) => Promise<void> | void
+  }
+
+  const currentZoom = graphWithZoom.getZoom?.()
+  if (currentZoom != null && currentZoom > 1) {
+    await graphWithZoom.zoomTo?.(1, { duration: 0 })
+  }
 }
 
 export function cancelComplianceGraphPlayback() {

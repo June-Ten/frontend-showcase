@@ -33,50 +33,50 @@ const KIND_THEME: Record<MindmapNodeKind, NodeThemeTokens> = {
   section: {
     accent: '#3b8cff',
     accentSoft: 'rgba(59, 140, 255, 0.14)',
-    border: 'rgba(147, 197, 253, 0.5)',
+    border: 'rgba(126, 184, 234, 0.72)',
     titleColor: '#1a3b66',
-    bodyColor: '#5f7f9d',
-    background: 'rgba(255, 255, 255, 0.9)',
+    bodyColor: '#4b6d90',
+    background: '#ffffff',
   },
   policy: {
     accent: '#f5a623',
     accentSoft: 'rgba(245, 166, 35, 0.16)',
-    border: 'rgba(245, 200, 120, 0.55)',
+    border: 'rgba(234, 192, 110, 0.74)',
     titleColor: '#5c4a1f',
-    bodyColor: '#7a6840',
-    background: 'rgba(255, 252, 245, 0.92)',
+    bodyColor: '#705d32',
+    background: '#fffcf6',
   },
   'analysis-blue': {
     accent: '#3b8cff',
     accentSoft: 'rgba(59, 140, 255, 0.14)',
-    border: 'rgba(147, 197, 253, 0.5)',
+    border: 'rgba(126, 184, 234, 0.72)',
     titleColor: '#1a3b66',
-    bodyColor: '#5f7f9d',
-    background: 'rgba(248, 252, 255, 0.92)',
+    bodyColor: '#4b6d90',
+    background: '#f7fbff',
   },
   'analysis-yellow': {
     accent: '#f5a623',
     accentSoft: 'rgba(245, 166, 35, 0.16)',
-    border: 'rgba(245, 200, 120, 0.5)',
+    border: 'rgba(234, 192, 110, 0.74)',
     titleColor: '#5c4a1f',
-    bodyColor: '#7a6840',
-    background: 'rgba(255, 251, 242, 0.92)',
+    bodyColor: '#705d32',
+    background: '#fffaf1',
   },
   advice: {
     accent: '#2bbbad',
     accentSoft: 'rgba(43, 187, 173, 0.14)',
-    border: 'rgba(125, 211, 199, 0.55)',
+    border: 'rgba(113, 200, 187, 0.72)',
     titleColor: '#1f5c56',
-    bodyColor: '#4d7d77',
-    background: 'rgba(246, 255, 253, 0.92)',
+    bodyColor: '#406e68',
+    background: '#f6fffd',
   },
   conclusion: {
     accent: '#ff6b6b',
     accentSoft: 'rgba(255, 107, 107, 0.14)',
-    border: 'rgba(255, 163, 158, 0.55)',
+    border: 'rgba(245, 145, 145, 0.72)',
     titleColor: '#8a3039',
-    bodyColor: '#a8575f',
-    background: 'rgba(255, 248, 249, 0.92)',
+    bodyColor: '#91505a',
+    background: '#fff8f9',
   },
 }
 
@@ -157,12 +157,12 @@ export function renderComplianceNodeHtml(payload: MindmapNodePayload, nodeId?: s
           ${payload.content ? `<div style="margin-top:3px;font-size:11.5px;font-weight:500;color:${theme.bodyColor};">${escapeHtml(payload.content)}</div>` : ''}
         </div>
       </div>`
-    : `<div style="font-size:13px;font-weight:700;color:${theme.titleColor};line-height:1.35;">
+    : `<div style="font-size:13.5px;font-weight:700;color:${theme.titleColor};line-height:1.35;">
         ${escapeHtml(payload.title)}
       </div>`
 
   const contentHtml = payload.kind !== 'file' && payload.content
-    ? `<div style="margin-top:6px;font-size:11px;color:${theme.bodyColor};">
+    ? `<div style="margin-top:6px;font-size:11.5px;font-weight:500;color:${theme.bodyColor};">
         ${renderContentLines(payload.content, theme.bodyColor)}
       </div>`
     : ''
@@ -178,9 +178,8 @@ export function renderComplianceNodeHtml(payload: MindmapNodePayload, nodeId?: s
   const isFile = payload.kind === 'file'
   const shadow = isFile
     ? '0 4px 16px rgba(26, 111, 244, 0.18), 0 1px 4px rgba(26, 59, 102, 0.12), inset 0 1px 0 rgba(255, 255, 255, 1)'
-    : '0 8px 24px rgba(26, 59, 102, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.75)'
-  const borderWidth = isFile ? '1.5px' : '1px'
-  const backdropFilter = isFile ? 'none' : 'blur(12px)'
+    : '0 6px 18px rgba(26, 59, 102, 0.06), 0 1px 3px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.95)'
+  const borderWidth = isFile ? '1.5px' : '1.2px'
 
   const nodeIdAttr = nodeId ? ` data-node-id="${nodeId}"` : ''
   return `<div${nodeIdAttr} style="
@@ -192,9 +191,9 @@ export function renderComplianceNodeHtml(payload: MindmapNodePayload, nodeId?: s
     background:${theme.background};
     border:${borderWidth} solid ${theme.border};
     box-shadow:${shadow};
-    backdrop-filter:${backdropFilter};
-    -webkit-backdrop-filter:${backdropFilter};
     font-family:'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
     user-select:none;
     position:relative;
     overflow:hidden;
