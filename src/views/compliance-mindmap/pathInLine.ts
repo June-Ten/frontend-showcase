@@ -3,7 +3,8 @@ import { CubicHorizontal, ExtensionCategory, register } from '@antv/g6'
 /** 连线生长动画时长（毫秒） */
 export const EDGE_GROW_DURATION_MS = 1200
 
-const EDGE_DASH: [number, number] = [5, 5]
+/** 生长结束后的常态点线（配合 lineCap: round 呈圆点效果），与 Graph edge style 保持一致 */
+const EDGE_DASH: [number, number] = [1, 7]
 
 interface GrowablePath {
   getTotalLength(): number

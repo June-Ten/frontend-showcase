@@ -68,9 +68,10 @@ export async function createComplianceMindmapGraph(container: HTMLElement): Prom
     edge: {
       type: 'path-in-line',
       style: {
-        stroke: '#7eb8ea',
-        lineWidth: 1.5,
-        lineDash: [5, 5],
+        stroke: '#8bbceb',
+        lineWidth: 1.6,
+        lineDash: [1, 7],
+        lineCap: 'round',
         endArrow: false,
       },
       animation: edgeAnimation,

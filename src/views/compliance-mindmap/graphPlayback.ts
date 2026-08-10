@@ -12,6 +12,8 @@ import {
 
 const STEP_GAP_MS = 80
 const LAYER_GAP_MS = 360
+/** 节点卡片淡入时长，与 growEdge 里设置的 transition 0.28s 对齐 */
+const NODE_FADE_MS = 280
 
 let playbackRunId = 0
 let complianceLayout: ComplianceLayout | null = null
@@ -87,6 +89,46 @@ async function growEdge(graph: G6Graph, container: HTMLElement, source: string, 
   }
 }
 
+/**
+ * 多条边同时生长、汇入同一个目标节点。
+ * 目标节点先加入图但保持隐藏，等所有边的生长动画完成后统一淡入。
+ */
+async function growEdgeGroup(
+  graph: G6Graph,
+  container: HTMLElement,
+  sources: string[],
+  target: string,
+) {
+  const pendingSources = sources.filter(
+    (source) => !graph.hasEdge(complianceEdgeId(source, target)),
+  )
+  if (pendingSources.length === 0) return
+
+  const layout = getComplianceLayout()
+
+  if (!graph.hasNode(target)) {
+    graph.addNodeData([getComplianceNodeDatum(target, layout)])
+  }
+
+  // 一次性加入全部边，draw() 后各条边的生长动画同时开始
+  graph.addEdgeData(pendingSources.map((source) => getComplianceEdgeDatum(source, target)))
+  await graph.draw()
+
+  const el = getNodeCardEl(container, target)
+  if (el) {
+    el.style.transition = 'none'
+    el.style.opacity = '0'
+  }
+
+  // 等所有线长完（同时开始，时长一致，等一份即可）
+  await delay(EDGE_GROW_DURATION_MS)
+
+  if (el) {
+    el.style.transition = 'opacity 0.28s ease-out'
+    el.style.opacity = '1'
+  }
+}
+
 async function restoreRootState(graph: G6Graph) {
   graph.setData(buildEmptyGraphData())
   await graph.render()
@@ -114,6 +156,12 @@ export async function playComplianceGraphGeneration(graph: G6Graph, container: H
 
       if (step.kind === 'edge') {
         await growEdge(graph, container, step.source, step.target)
+        await delay(STEP_GAP_MS)
+      } else if (step.kind === 'edge-group') {
+        // 汇聚步骤：等前面所有节点淡入完毕后，多条线同时生长，长完再显示目标节点
+        await delay(NODE_FADE_MS)
+        if (runId !== playbackRunId) return
+        await growEdgeGroup(graph, container, step.sources, step.target)
         await delay(STEP_GAP_MS)
       }
     }

@@ -184,9 +184,15 @@ onBeforeUnmount(() => {
   height: 100%;
   border-radius: 16px;
   background:
+    radial-gradient(rgba(59, 140, 255, 0.13) 1px, transparent 1.5px),
     radial-gradient(ellipse 70% 45% at 25% 15%, rgba(198, 225, 255, 0.5), transparent 58%),
     radial-gradient(ellipse 55% 40% at 85% 85%, rgba(186, 218, 255, 0.38), transparent 52%),
     linear-gradient(180deg, #eef5ff 0%, #f8fbff 62%, #ffffff 100%);
+  background-size:
+    26px 26px,
+    100% 100%,
+    100% 100%,
+    100% 100%;
   border: 1px solid rgba(168, 206, 245, 0.45);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.85),

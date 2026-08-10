@@ -1,3 +1,4 @@
+import { getNodeSize } from './mindmapData'
 import type { ComplianceVerdict, MindmapNodeKind, MindmapNodePayload } from './mindmapData'
 
 interface NodeThemeTokens {
@@ -89,18 +90,26 @@ function escapeHtml(value: string) {
     .replaceAll("'", '&#39;')
 }
 
-function renderContentLines(content: string, color: string) {
+function renderContentLines(content: string, bulletColor: string) {
   return content
     .split('\n')
     .map((line) => {
       const text = escapeHtml(line)
       if (line.startsWith('• ')) {
-        return `<div style="display:flex;gap:6px;margin-top:4px;line-height:1.45;">
-          <span style="color:${color};opacity:0.7;">•</span>
+        return `<div style="display:flex;align-items:baseline;gap:7px;margin-top:4px;line-height:1.5;">
+          <span style="
+            width:4px;
+            height:4px;
+            border-radius:50%;
+            background:${bulletColor};
+            opacity:0.75;
+            flex-shrink:0;
+            transform:translateY(-2px);
+          "></span>
           <span style="flex:1;">${escapeHtml(line.slice(2))}</span>
         </div>`
       }
-      return `<div style="margin-top:4px;line-height:1.45;">${text}</div>`
+      return `<div style="margin-top:4px;line-height:1.5;">${text}</div>`
     })
     .join('')
 }
@@ -129,8 +138,9 @@ function renderVerdictBadge(verdict: ComplianceVerdict) {
   return `<span style="
     display:inline-flex;
     align-items:center;
+    gap:5px;
     margin-top:8px;
-    padding:2px 10px;
+    padding:2.5px 10px 2.5px 8px;
     border-radius:999px;
     font-size:11px;
     font-weight:600;
@@ -138,7 +148,16 @@ function renderVerdictBadge(verdict: ComplianceVerdict) {
     background:${badge.bg};
     color:${badge.color};
     border:1px solid ${badge.border};
-  ">${VERDICT_LABEL[verdict]}</span>`
+  ">
+    <span style="
+      width:5px;
+      height:5px;
+      border-radius:50%;
+      background:currentColor;
+      box-shadow:0 0 0 2.5px ${badge.bg};
+    "></span>
+    ${VERDICT_LABEL[verdict]}
+  </span>`
 }
 
 export function renderComplianceNodeHtml(payload: MindmapNodePayload, nodeId?: string): string {
@@ -163,7 +182,7 @@ export function renderComplianceNodeHtml(payload: MindmapNodePayload, nodeId?: s
 
   const contentHtml = payload.kind !== 'file' && payload.content
     ? `<div style="margin-top:6px;font-size:11.5px;font-weight:500;color:${theme.bodyColor};">
-        ${renderContentLines(payload.content, theme.bodyColor)}
+        ${renderContentLines(payload.content, accent)}
       </div>`
     : ''
 
@@ -177,18 +196,25 @@ export function renderComplianceNodeHtml(payload: MindmapNodePayload, nodeId?: s
 
   const isFile = payload.kind === 'file'
   const shadow = isFile
-    ? '0 4px 16px rgba(26, 111, 244, 0.18), 0 1px 4px rgba(26, 59, 102, 0.12), inset 0 1px 0 rgba(255, 255, 255, 1)'
-    : '0 6px 18px rgba(26, 59, 102, 0.06), 0 1px 3px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.95)'
+    ? '0 1px 3px rgba(26, 59, 102, 0.1), 0 6px 18px rgba(26, 111, 244, 0.16), inset 0 1px 0 rgba(255, 255, 255, 1)'
+    : '0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 10px rgba(26, 59, 102, 0.05), 0 12px 26px rgba(26, 59, 102, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95)'
   const borderWidth = isFile ? '1.5px' : '1.2px'
+
+  // G6 HTML 节点的外层容器不会把声明尺寸传给卡片（height:100% 会塌陷成内容高度），
+  // 必须写死像素宽高，卡片可见范围才能与端口所在的声明盒子重合，连线才对齐垂直中心
+  const [width, height] = getNodeSize(payload.kind)
 
   const nodeIdAttr = nodeId ? ` data-node-id="${nodeId}"` : ''
   return `<div${nodeIdAttr} style="
     box-sizing:border-box;
-    width:100%;
-    height:100%;
-    padding:12px 14px;
+    width:${width}px;
+    height:${height}px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:12px 14px 12px 18px;
     border-radius:12px;
-    background:${theme.background};
+    background:linear-gradient(180deg, #ffffff 0%, ${theme.background} 100%);
     border:${borderWidth} solid ${theme.border};
     box-shadow:${shadow};
     font-family:'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -201,15 +227,13 @@ export function renderComplianceNodeHtml(payload: MindmapNodePayload, nodeId?: s
   ">
     <span style="
       position:absolute;
-      top:10px;
-      left:10px;
-      width:7px;
-      height:7px;
-      border-radius:50%;
-      background:${accent};
-      box-shadow:0 0 0 3px ${theme.accentSoft};
+      top:0;
+      left:0;
+      bottom:0;
+      width:4px;
+      background:linear-gradient(180deg, ${accent} 0%, ${accent} 55%, ${theme.accentSoft} 100%);
     "></span>
-    <div style="padding-left:14px;">
+    <div>
       ${titleHtml}
       ${contentHtml}
       ${subtitleHtml}

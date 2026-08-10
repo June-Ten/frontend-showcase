@@ -8,7 +8,7 @@
 
 1. 启动项目：`npm run dev`
 2. 打开路由：`/compliance-mindmap`
-3. 点击 **播放生成**，观察三层逐步展开
+3. 点击 **播放生成**，观察四层逐步展开（结论节点由三条线同时汇入）
 4. 可用 **重置** 清空画布，用 **适应画布** 把整图收进视口
 
 依赖要点：
@@ -154,9 +154,9 @@ G6 侧节点结构：
 尺寸写在 `NODE_SIZE`，同时供 **dagre 占位** 与 **HTML 节点 `size`** 使用，必须一致，否则连线端口会对不齐卡片。
 
 ```ts
-file: [168, 64]
-section: [240, 124]
-policy: [244, 140]
+file: [184, 68]
+section: [280, 190]
+policy: [280, 192]
 // ...
 ```
 
@@ -224,6 +224,7 @@ node: {
 1. **`dx` / `dy`**：G6 HTML 节点默认左上角对齐坐标点，必须减去半宽半高，才能与 dagre 中心点对齐
 2. **`innerHTML`**：返回字符串；样式用 inline style，避免全局 CSS 污染
 3. **`data-node-id`**：写在卡片根元素上，播放时用 `querySelector` 控制淡入
+4. **卡片必须写死像素宽高**：外层容器不会把 `size` 作为 CSS 高度传下来，`height:100%` 会塌陷成内容高度，导致卡片可见中心偏离端口（连线接在偏下位置）；模板里直接用 `NODE_SIZE` 写 `width/height` 像素值，内容用 flex 垂直居中
 
 ### 行为
 
@@ -240,10 +241,11 @@ behaviors: [
 
 `renderComplianceNodeHtml.ts` 按 `kind` 取主题 token，拼出卡片 HTML：
 
-- 左上角状态圆点（accent）
-- 标题 / 正文 / `•` 列表
-- 可选判定徽章（合规 / 疑似违规 / 违规）
-- `file` 类型带文档图标，背景更实、边框更粗
+- 左侧贯穿的渐变 accent 竖条（`conclusion` 跟随判定色）
+- 标题 / 正文 / 圆点列表（列表标记用 accent 色）
+- 可选判定徽章（合规 / 疑似违规 / 违规，带状态圆点）
+- `file` 类型带文档图标，边框更粗、阴影偏蓝
+- 卡片背景为白到主题色的纵向微渐变，阴影三层叠加更柔和
 
 设计取舍（与封面图风格对齐，同时保证可读性）：
 
@@ -268,7 +270,7 @@ register(ExtensionCategory.EDGE, 'path-in-line', PathInLine)
 1. 取路径总长 `L`
 2. 设 `lineDash = [0, L]`（整段不可见）
 3. 动画到 `lineDash = [L, 0]`（整段画出）
-4. 结束后改回业务虚线 `[5, 5]`
+4. 结束后改回业务点线 `[1, 7]`（配合 `lineCap: 'round'` 呈圆点效果）
 
 时长常量：`EDGE_GROW_DURATION_MS = 1200`，播放逻辑必须与此对齐，否则节点会在线还没画完时提前出现。
 
@@ -278,13 +280,14 @@ register(ExtensionCategory.EDGE, 'path-in-line', PathInLine)
 
 ### 分镜
 
-`COMPLIANCE_PLAYBACK_LAYERS` 把边分成三层：
+`COMPLIANCE_PLAYBACK_LAYERS` 把边分成四层：
 
 1. **主干**：root → summary → business  
 2. **政策**：business → 三个 policy  
-3. **分析 / 建议 / 结论**：沿三条分支推进，最后汇入 conclusion  
+3. **分析 / 建议**：沿三条分支推进到 advice  
+4. **结论（edge-group）**：等所有节点淡入完毕后，三条 advice → conclusion 的边**同时生长**，全部长完再统一显示 conclusion  
 
-层内步间隔 `STEP_GAP_MS = 80`，层间间隔 `LAYER_GAP_MS = 360`。
+层内步间隔 `STEP_GAP_MS = 80`，层间间隔 `LAYER_GAP_MS = 360`，节点淡入时长 `NODE_FADE_MS = 280`。
 
 ### 单步 `growEdge`
 
