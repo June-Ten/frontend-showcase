@@ -12,6 +12,11 @@ const routes = [
     component: () => import('../views/visualization/index.vue')
   },
   {
+    path: '/globe',
+    name: 'Globe',
+    component: () => import('../views/globe/index.vue')
+  },
+  {
     path: '/equity',
     name: 'Equity',
     component: () => import('../views/equity/index.vue')
