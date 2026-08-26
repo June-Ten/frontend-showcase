@@ -10,7 +10,6 @@ const GLOBE_RADIUS = 100
 const CHINA_CENTER = { lon: 104.2, lat: 35.8 }
 const CITY_HEIGHT_REST = 1.15
 const CITY_HEIGHT_HOVER = 8.4
-const CITY_PICK_ANGLE = THREE.MathUtils.degToRad(2.6)
 
 const STYLE = {
   bg: '#020814',
@@ -65,18 +64,7 @@ const CITIES = [
 ]
 
 const FLY_ROUTES: [string, string][] = [
-  ['北京', '上海'],
-  ['北京', '广州'],
-  ['北京', '深圳'],
-  ['北京', '成都'],
-  ['北京', '武汉'],
-  ['北京', '西安'],
   ['北京', '乌鲁木齐'],
-  ['北京', '哈尔滨'],
-  ['北京', '拉萨'],
-  ['北京', '香港'],
-  ['上海', '台北'],
-  ['广州', '海口'],
 ]
 
 const refineChinaGeojson = (geojson: FeatureCollection): FeatureCollection => {
@@ -87,6 +75,90 @@ const refineChinaGeojson = (geojson: FeatureCollection): FeatureCollection => {
     return !String(props.adcode ?? '').includes('JD')
   })
   return { ...geojson, features }
+}
+
+const PROVINCE_MARKERS: Record<string, string> = {
+  北京市: '北京',
+  新疆维吾尔自治区: '乌鲁木齐',
+}
+
+const pointInRing = (lon: number, lat: number, ring: number[][]) => {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
+    const xi = ring[i]?.[0]
+    const yi = ring[i]?.[1]
+    const xj = ring[j]?.[0]
+    const yj = ring[j]?.[1]
+    if (typeof xi !== 'number' || typeof yi !== 'number' || typeof xj !== 'number' || typeof yj !== 'number') continue
+    const intersects = (yi > lat) !== (yj > lat)
+      && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi
+    if (intersects) inside = !inside
+  }
+  return inside
+}
+
+const pointInGeometry = (lon: number, lat: number, geometry: FeatureCollection['features'][number]['geometry']) => {
+  if (!geometry) return false
+  const polygons = geometry.type === 'Polygon'
+    ? [geometry.coordinates]
+    : geometry.type === 'MultiPolygon'
+      ? geometry.coordinates
+      : []
+  return polygons.some((rings) => {
+    const outline = rings[0]
+    if (!outline || !pointInRing(lon, lat, outline as number[][])) return false
+    return rings.slice(1).every((hole) => !pointInRing(lon, lat, hole as number[][]))
+  })
+}
+
+const createProvinceIndex = (geojson: FeatureCollection) => {
+  const provinces = geojson.features.flatMap((feature) => {
+    const name = (feature.properties as { name?: string } | null)?.name
+    if (!name || !feature.geometry) return []
+    let minLon = 180
+    let minLat = 90
+    let maxLon = -180
+    let maxLat = -90
+    const walk = (coords: unknown) => {
+      if (!Array.isArray(coords) || coords.length === 0) return
+      if (typeof coords[0] === 'number') {
+        const lon = coords[0]
+        const lat = coords[1]
+        if (typeof lon !== 'number' || typeof lat !== 'number') return
+        minLon = Math.min(minLon, lon)
+        maxLon = Math.max(maxLon, lon)
+        minLat = Math.min(minLat, lat)
+        maxLat = Math.max(maxLat, lat)
+        return
+      }
+      coords.forEach(walk)
+    }
+    walk((feature.geometry as { coordinates: unknown }).coordinates)
+    return [{
+      name,
+      geometry: feature.geometry,
+      minLon,
+      minLat,
+      maxLon,
+      maxLat,
+      area: (maxLon - minLon) * (maxLat - minLat),
+    }]
+  }).sort((a, b) => a.area - b.area)
+
+  const pickUv = (u: number, v: number) => {
+    const lon = u * 360 - 180
+    const lat = v * 180 - 90
+    const hit = provinces.find((item) => (
+      lon >= item.minLon
+      && lon <= item.maxLon
+      && lat >= item.minLat
+      && lat <= item.maxLat
+      && pointInGeometry(lon, lat, item.geometry)
+    ))
+    return hit?.name ?? null
+  }
+
+  return { pickUv }
 }
 
 const lonLatToVector = (lon: number, lat: number, radius = GLOBE_RADIUS) => {
@@ -100,8 +172,8 @@ const lonLatToVector = (lon: number, lat: number, radius = GLOBE_RADIUS) => {
 }
 
 const createChinaMask = (geojson: FeatureCollection) => {
-  const width = 1024
-  const height = 512
+  const width = 2048
+  const height = 1024
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -123,12 +195,17 @@ const createChinaMask = (geojson: FeatureCollection) => {
   context.fillStyle = '#ff0000'
   context.fill()
   context.strokeStyle = '#00ff00'
-  context.lineWidth = 2.2
+  context.lineJoin = 'round'
+  context.lineCap = 'round'
+  context.lineWidth = 1.15
   context.stroke()
 
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.NoColorSpace
   texture.anisotropy = 4
+  texture.generateMipmaps = false
+  texture.minFilter = THREE.LinearFilter
+  texture.magFilter = THREE.LinearFilter
   const pixels = context.getImageData(0, 0, width, height).data
 
   const containsUv = (u: number, v: number) => {
@@ -322,11 +399,13 @@ const createHoloBase = () => {
 type CityMarker = {
   name: string
   dir: THREE.Vector3
-  mesh: THREE.Mesh
-  halo: THREE.Mesh
+  mesh?: THREE.Mesh
+  halo?: THREE.Mesh
   height: number
   target: number
 }
+
+const MARKER_CITIES = new Set(FLY_ROUTES.flat())
 
 const createCityMarkers = () => {
   const group = new THREE.Group()
@@ -339,47 +418,50 @@ const createCityMarkers = () => {
   const haloGeometry = new THREE.CircleGeometry(1.05, 24)
   haloGeometry.rotateX(-Math.PI / 2)
   geometries.push(bodyGeometry, haloGeometry)
-
   const up = new THREE.Vector3(0, 1, 0)
 
   CITIES.forEach((city) => {
     const dir = lonLatToVector(city.lon, city.lat, 1)
-    const quaternion = new THREE.Quaternion().setFromUnitVectors(up, dir)
-
-    const bodyMaterial = new THREE.MeshBasicMaterial({
-      color: STYLE.fly,
-      transparent: true,
-      opacity: 0.92,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    })
-    const mesh = new THREE.Mesh(bodyGeometry, bodyMaterial)
-    mesh.position.copy(dir).multiplyScalar(GLOBE_RADIUS + 0.18)
-    mesh.quaternion.copy(quaternion)
-    mesh.scale.set(1, CITY_HEIGHT_REST, 1)
-
-    const haloMaterial = new THREE.MeshBasicMaterial({
-      color: STYLE.fly,
-      transparent: true,
-      opacity: 0.35,
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    })
-    const halo = new THREE.Mesh(haloGeometry, haloMaterial)
-    halo.position.copy(dir).multiplyScalar(GLOBE_RADIUS + 0.22)
-    halo.quaternion.copy(quaternion)
-
-    materials.push(bodyMaterial, haloMaterial)
-    group.add(mesh, halo)
-    cities.push({
+    const marker: CityMarker = {
       name: city.name,
       dir,
-      mesh,
-      halo,
       height: CITY_HEIGHT_REST,
       target: CITY_HEIGHT_REST,
-    })
+    }
+
+    if (MARKER_CITIES.has(city.name)) {
+      const quaternion = new THREE.Quaternion().setFromUnitVectors(up, dir)
+      const bodyMaterial = new THREE.MeshBasicMaterial({
+        color: STYLE.fly,
+        transparent: true,
+        opacity: 0.92,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+      const mesh = new THREE.Mesh(bodyGeometry, bodyMaterial)
+      mesh.position.copy(dir).multiplyScalar(GLOBE_RADIUS + 0.18)
+      mesh.quaternion.copy(quaternion)
+      mesh.scale.set(1, CITY_HEIGHT_REST, 1)
+
+      const haloMaterial = new THREE.MeshBasicMaterial({
+        color: '#ffffff',
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+      const halo = new THREE.Mesh(haloGeometry, haloMaterial)
+      halo.position.copy(dir).multiplyScalar(GLOBE_RADIUS + 0.22)
+      halo.quaternion.copy(quaternion)
+
+      materials.push(bodyMaterial, haloMaterial)
+      group.add(mesh, halo)
+      marker.mesh = mesh
+      marker.halo = halo
+    }
+
+    cities.push(marker)
   })
 
   return { group, cities, geometries, materials }
@@ -422,6 +504,7 @@ export function createGlobe3d(
   cloudsTexture.anisotropy = 4
 
   const chinaMask = createChinaMask(chinaGeojson)
+  const provinces = createProvinceIndex(refineChinaGeojson(chinaGeojson))
   const cityMarkers = createCityMarkers()
 
   const earthGeometry = new THREE.SphereGeometry(GLOBE_RADIUS, 96, 64)
@@ -467,7 +550,8 @@ export function createGlobe3d(
         vec3 chinaFill = mix(color, ocean, 0.46);
         color = mix(color, chinaFill, mask.r * 0.58);
         color += ocean * mask.r * 0.10;
-        color += sky * mask.g * 0.48;
+        float border = smoothstep(0.08, 0.4, mask.g);
+        color += sky * border * 0.72;
 
         gl_FragColor = vec4(color, 1.0);
       }
@@ -540,7 +624,6 @@ export function createGlobe3d(
 
   const raycaster = new THREE.Raycaster()
   const pointer = new THREE.Vector2()
-  const localHit = new THREE.Vector3()
 
   const tooltip = document.createElement('div')
   tooltip.style.cssText = [
@@ -559,33 +642,19 @@ export function createGlobe3d(
   ].join(';')
   canvas.parentElement?.appendChild(tooltip)
 
-  const pickCity = (point: THREE.Vector3) => {
-    localHit.copy(point)
-    earthMesh.worldToLocal(localHit).normalize()
-    let nearest: CityMarker | null = null
-    let bestAngle = CITY_PICK_ANGLE
-    cityMarkers.cities.forEach((city) => {
-      const angle = localHit.angleTo(city.dir)
-      if (angle < bestAngle) {
-        bestAngle = angle
-        nearest = city
-      }
-    })
-    return nearest
-  }
-
-  const setActiveCity = (city: CityMarker | null, event?: PointerEvent) => {
+  const setActiveProvince = (name: string | null, event?: PointerEvent) => {
+    const markerName = name ? PROVINCE_MARKERS[name] : undefined
     cityMarkers.cities.forEach((item) => {
-      item.target = item === city ? CITY_HEIGHT_HOVER : CITY_HEIGHT_REST
+      item.target = item.mesh && item.name === markerName ? CITY_HEIGHT_HOVER : CITY_HEIGHT_REST
     })
-    canvas.style.cursor = city ? 'pointer' : 'grab'
-    controls.autoRotate = !city
+    canvas.style.cursor = name ? 'pointer' : 'grab'
+    controls.autoRotate = !name
 
-    if (!city || !event) {
+    if (!name || !event) {
       tooltip.style.display = 'none'
       return
     }
-    tooltip.textContent = city.name
+    tooltip.textContent = name
     tooltip.style.display = 'block'
     const parentRect = canvas.parentElement?.getBoundingClientRect() ?? canvas.getBoundingClientRect()
     tooltip.style.left = `${event.clientX - parentRect.left + 14}px`
@@ -599,14 +668,14 @@ export function createGlobe3d(
     raycaster.setFromCamera(pointer, camera)
     const hit = raycaster.intersectObject(earthMesh)[0]
     const uv = hit?.uv
-    if (!hit || !uv || !chinaMask.containsUv(uv.x, uv.y)) {
-      setActiveCity(null)
+    if (!hit || !uv) {
+      setActiveProvince(null)
       return
     }
-    setActiveCity(pickCity(hit.point), event)
+    setActiveProvince(provinces.pickUv(uv.x, uv.y), event)
   }
 
-  const handlePointerLeave = () => setActiveCity(null)
+  const handlePointerLeave = () => setActiveProvince(null)
 
   canvas.addEventListener('pointermove', handlePointerMove)
   canvas.addEventListener('pointerleave', handlePointerLeave)
@@ -646,11 +715,12 @@ export function createGlobe3d(
     glow.update(clock.elapsedTime)
 
     cityMarkers.cities.forEach((city) => {
+      if (!city.mesh || !city.halo) return
       city.height += (city.target - city.height) * Math.min(1, delta * 8)
       city.mesh.scale.set(1, city.height, 1)
       const hover = (city.height - CITY_HEIGHT_REST) / (CITY_HEIGHT_HOVER - CITY_HEIGHT_REST)
       city.halo.scale.setScalar(1 + hover * 0.55)
-      ;(city.halo.material as THREE.MeshBasicMaterial).opacity = 0.28 + hover * 0.45
+      ;(city.halo.material as THREE.MeshBasicMaterial).opacity = 0.7 + hover * 0.3
       ;(city.mesh.material as THREE.MeshBasicMaterial).color.set(hover > 0.2 ? '#e7f5fc' : STYLE.fly)
     })
 
