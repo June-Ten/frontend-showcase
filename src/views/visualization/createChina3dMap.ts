@@ -21,6 +21,8 @@ const COLOR_SIDE_BOTTOM = new THREE.Color('#071430')
 const COLOR_SIDE_RIM = new THREE.Color('#7fdfff')
 const COLOR_BORDER = new THREE.Color('#8fe3ff')
 const COLOR_ACCENT = new THREE.Color('#1f8fde')
+const COLOR_HIGHLIGHT = new THREE.Color('#3f7fd6').lerp(new THREE.Color('#ffc861'), 0.34)
+const COLOR_HIGHLIGHT_GLOW = new THREE.Color('#5da8ff').lerp(new THREE.Color('#ffc861'), 0.42)
 
 function getPolygons(geometry: Geometry): Polygon[] {
   if (geometry.type === 'Polygon') return [geometry.coordinates as Polygon]
@@ -557,8 +559,9 @@ export function createChina3dMap(
 
   // --- 鼠标悬浮：高亮省份 + tooltip，悬浮期间暂停自动旋转 ---
   const highlightMaterial = topMaterial.clone()
-  highlightMaterial.color = new THREE.Color('#3f7fd6')
-  highlightMaterial.emissiveIntensity = 0.9
+  highlightMaterial.color = COLOR_HIGHLIGHT
+  highlightMaterial.emissive = COLOR_HIGHLIGHT_GLOW
+  highlightMaterial.emissiveIntensity = 0.95
 
   const tooltip = document.createElement('div')
   tooltip.style.cssText = [
