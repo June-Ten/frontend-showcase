@@ -1,6 +1,7 @@
 import type { Graph as G6Graph } from '@antv/g6'
 import type { ComplianceLayout } from './mindmapData'
 import { clearExpandedNodes } from './nodeExpandState'
+import { unmountAllComplianceNodes } from './mountComplianceNode'
 import {
   COMPLIANCE_PLAYBACK_LAYERS,
   buildEmptyGraphData,
@@ -99,6 +100,7 @@ async function revealEdgeGroup(graph: G6Graph, sources: string[], target: string
 }
 
 async function restoreRootState(graph: G6Graph) {
+  unmountAllComplianceNodes()
   graph.setData(buildEmptyGraphData())
   await graph.render()
 }
@@ -131,7 +133,7 @@ export async function playComplianceGraphGeneration(graph: G6Graph) {
         await revealEdge(graph, step.source, step.target)
         if (runId !== playbackRunId) return
         await focusAndWait(graph, step.target)
-      } else {
+      } else if (step.kind === 'edge-group') {
         await revealEdgeGroup(graph, step.sources, step.target)
         if (runId !== playbackRunId) return
         await focusAndWait(graph, step.target)

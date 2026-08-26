@@ -13,14 +13,13 @@ import { computeComplianceLayout } from './complianceLayout'
 import {
   buildEmptyGraphData,
   getComplianceNodeKind,
+  getHtmlNodeOffset,
   getNodeSize,
   MINIMAP_NODE_COLOR,
   type MindmapNodePayload,
 } from './mindmapData'
 import { setComplianceLayout } from './graphPlayback'
-import { getHtmlNodeOffset, renderComplianceNodeHtml } from './renderComplianceNodeHtml'
-import { isNodeExpanded, toggleNodeExpanded } from './nodeExpandState'
-import './mindmapNodes.scss'
+import { renderComplianceNodeVue } from './mountComplianceNode'
 
 function getPayload(datum: { data?: Record<string, unknown> }): MindmapNodePayload {
   return (datum.data ?? { kind: 'file', title: '' }) as unknown as MindmapNodePayload
@@ -61,48 +60,6 @@ function createMinimapShape(id: string, elementType: ElementType, element: Displ
   })
 }
 
-async function refreshNodeHtml(graph: G6Graph, nodeId: string, expanded: boolean) {
-  const datum = graph.getNodeData(nodeId)
-  if (!datum || Array.isArray(datum)) return
-
-  const payload: MindmapNodePayload = {
-    ...getPayload(datum),
-    expanded,
-  }
-  const size = getNodeSize(payload.kind)
-  const offset = getHtmlNodeOffset(size)
-
-  graph.updateNodeData([
-    {
-      id: nodeId,
-      data: payload,
-      style: {
-        size,
-        dx: offset.dx,
-        dy: offset.dy,
-        innerHTML: renderComplianceNodeHtml(payload, nodeId),
-      },
-    },
-  ])
-  await graph.draw()
-}
-
-function bindNodeActions(container: HTMLElement, graph: G6Graph) {
-  container.addEventListener('click', (event) => {
-    const target = (event.target as HTMLElement | null)?.closest?.('[data-action]')
-    if (!(target instanceof HTMLElement)) return
-
-    const card = target.closest('[data-node-id]')
-    const nodeId = card instanceof HTMLElement ? card.dataset.nodeId : undefined
-    if (!nodeId || target.dataset.action !== 'toggle-expand') return
-
-    event.preventDefault()
-    event.stopPropagation()
-    const expanded = toggleNodeExpanded(nodeId)
-    void refreshNodeHtml(graph, nodeId, expanded)
-  })
-}
-
 export async function createComplianceMindmapGraph(container: HTMLElement): Promise<G6Graph> {
   const layout = computeComplianceLayout()
   setComplianceLayout(layout)
@@ -131,14 +88,8 @@ export async function createComplianceMindmapGraph(container: HTMLElement): Prom
           { key: 'left', placement: [0, 0.5] },
           { key: 'right', placement: [1, 0.5] },
         ],
-        innerHTML: (datum: NodeData) => {
-          const payload = getPayload(datum)
-          const id = String(datum.id)
-          return renderComplianceNodeHtml(
-            { ...payload, expanded: isNodeExpanded(id) },
-            id,
-          )
-        },
+        innerHTML: (datum: NodeData) =>
+          renderComplianceNodeVue(getPayload(datum), String(datum.id)),
       },
       animation: nodeAnimation,
     },
@@ -195,7 +146,6 @@ export async function createComplianceMindmapGraph(container: HTMLElement): Prom
     ],
   })
 
-  bindNodeActions(container, graph)
   await graph.render()
   return graph
 }

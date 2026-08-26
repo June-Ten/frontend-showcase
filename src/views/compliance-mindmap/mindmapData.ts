@@ -339,3 +339,7 @@ export function getComplianceNodeKind(id: string): MindmapNodeKind {
 export function getNodeSize(kind: MindmapNodeKind): [number, number] {
   return NODE_SIZE[kind] ?? [224, 96]
 }
+
+export function getHtmlNodeOffset(size: [number, number]): { dx: number; dy: number } {
+  return { dx: -size[0] / 2, dy: -size[1] / 2 }
+}
