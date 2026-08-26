@@ -35,7 +35,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   color: #9fd4ee;
   font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  background: #020814;
+  background: #02010c;
 }
 
 .earth-view__header {
@@ -83,7 +83,7 @@ onBeforeUnmount(() => {
 html.globe-page,
 html.globe-page body {
   overflow: hidden;
-  background: #020814;
+  background: #02010c;
 }
 
 html.globe-page #app {

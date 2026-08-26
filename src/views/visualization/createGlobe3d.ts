@@ -12,7 +12,7 @@ const CITY_HEIGHT_REST = 1.15
 const CITY_HEIGHT_HOVER = 8.4
 
 const STYLE = {
-  bg: '#020814',
+  bg: '#02010c',
   area: '#1565a8',
   line: '#9fd4ee',
   sprite: STREAM_STYLE.sprite,
@@ -256,24 +256,203 @@ const createAtmosphere = (sunDir: THREE.Vector3) => {
   return new THREE.Mesh(geometry, material)
 }
 
-const createStars = () => {
-  const positions: number[] = []
-  for (let i = 0; i < 320; i += 1) {
-    const radius = 420 + Math.random() * 680
-    const point = new THREE.Vector3().randomDirection().multiplyScalar(radius)
-    positions.push(point.x, point.y, point.z)
+const createStarSprite = () => {
+  const size = 64
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('无法创建星点贴图')
+
+  const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32)
+  gradient.addColorStop(0, 'rgba(255,255,255,1)')
+  gradient.addColorStop(0.18, 'rgba(255,252,248,0.9)')
+  gradient.addColorStop(0.42, 'rgba(186,214,255,0.28)')
+  gradient.addColorStop(1, 'rgba(0,0,0,0)')
+  context.fillStyle = gradient
+  context.fillRect(0, 0, size, size)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+const createNebulaTexture = () => {
+  const width = 1024
+  const height = 512
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('无法创建星云贴图')
+
+  context.fillStyle = '#070412'
+  context.fillRect(0, 0, width, height)
+
+  const blobs = [
+    { color: 'rgba(48, 22, 96, 0.5)' },
+    { color: 'rgba(16, 44, 118, 0.42)' },
+    { color: 'rgba(92, 28, 78, 0.32)' },
+    { color: 'rgba(24, 72, 128, 0.28)' },
+  ]
+  for (let i = 0; i < 36; i += 1) {
+    const x = Math.random() * width
+    const y = height * 0.28 + Math.random() * height * 0.44
+    const radius = 70 + Math.random() * 210
+    const gradient = context.createRadialGradient(x, y, 0, x, y, radius)
+    gradient.addColorStop(0, blobs[i % blobs.length].color)
+    gradient.addColorStop(1, 'rgba(0,0,0,0)')
+    context.fillStyle = gradient
+    context.fillRect(x - radius, y - radius, radius * 2, radius * 2)
   }
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-  const material = new THREE.PointsMaterial({
-    color: STYLE.sprite,
-    size: STYLE.spriteSize,
-    transparent: true,
-    opacity: 0.72,
+
+  const image = context.getImageData(0, 0, width, height)
+  const pixels = image.data
+  for (let x = 0; x < width; x += 1) {
+    const bandY = height * 0.5
+      + Math.sin(x * 0.016) * 38
+      + Math.sin(x * 0.047) * 18
+    for (let y = 0; y < height; y += 1) {
+      const offset = (y - bandY) / (height * 0.12)
+      const band = Math.exp(-offset * offset)
+      if (band < 0.03) continue
+      const index = (y * width + x) * 4
+      const dust = band * (0.14 + ((x * 17 + y * 13) % 11) / 90)
+      pixels[index] = Math.min(255, pixels[index] + dust * 150)
+      pixels[index + 1] = Math.min(255, pixels[index + 1] + dust * 132)
+      pixels[index + 2] = Math.min(255, pixels[index + 2] + dust * 188)
+    }
+  }
+  context.putImageData(image, 0, 0)
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 4
+  return texture
+}
+
+const createCosmosBackground = () => {
+  const group = new THREE.Group()
+  const starMap = createStarSprite()
+  const nebulaMap = createNebulaTexture()
+
+  const nebulaGeometry = new THREE.SphereGeometry(1600, 48, 32)
+  const nebulaMaterial = new THREE.MeshBasicMaterial({
+    map: nebulaMap,
+    side: THREE.BackSide,
     depthWrite: false,
-    sizeAttenuation: true,
+    depthTest: false,
   })
-  return new THREE.Points(geometry, material)
+  const nebula = new THREE.Mesh(nebulaGeometry, nebulaMaterial)
+  nebula.renderOrder = -2
+  nebula.rotation.z = 0.42
+  group.add(nebula)
+
+  const count = 7200
+  const positions = new Float32Array(count * 3)
+  const colors = new Float32Array(count * 3)
+  const sizes = new Float32Array(count)
+  const phases = new Float32Array(count)
+  const bandAxis = new THREE.Vector3(1, 0.12, 0.38).normalize()
+  const palettes = [
+    [0.82, 0.9, 1],
+    [1, 0.97, 0.92],
+    [0.72, 0.84, 1],
+    [1, 0.84, 0.68],
+  ]
+
+  for (let i = 0; i < count; i += 1) {
+    const dir = new THREE.Vector3()
+    if (Math.random() < 0.58) {
+      const theta = Math.random() * Math.PI * 2
+      const y = (Math.random() - 0.5) * 0.28
+      const radial = Math.sqrt(Math.max(0, 1 - y * y))
+      dir.set(Math.cos(theta) * radial, y, Math.sin(theta) * radial)
+      dir.applyAxisAngle(bandAxis, 0.58)
+    } else {
+      dir.randomDirection()
+    }
+    dir.multiplyScalar(620 + Math.random() * 260)
+    positions[i * 3] = dir.x
+    positions[i * 3 + 1] = dir.y
+    positions[i * 3 + 2] = dir.z
+
+    const rare = Math.random() < 0.06
+    const palette = palettes[rare ? 3 : Math.floor(Math.random() * 3)]
+    const brightness = Math.pow(Math.random(), 2.2)
+    colors[i * 3] = palette[0] * (0.42 + brightness * 0.9)
+    colors[i * 3 + 1] = palette[1] * (0.42 + brightness * 0.9)
+    colors[i * 3 + 2] = palette[2] * (0.42 + brightness * 0.9)
+    sizes[i] = 1.1 + brightness * 3.8 + (rare ? 2.4 : 0)
+    phases[i] = Math.random() * Math.PI * 2
+  }
+
+  const starGeometry = new THREE.BufferGeometry()
+  starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  starGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+  starGeometry.setAttribute('aSize', new THREE.Float32BufferAttribute(sizes, 1))
+  starGeometry.setAttribute('aPhase', new THREE.Float32BufferAttribute(phases, 1))
+
+  const starMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uMap: { value: starMap },
+      uPixelRatio: { value: Math.min(window.devicePixelRatio, 1.5) },
+    },
+    vertexShader: `
+      attribute float aSize;
+      attribute float aPhase;
+      uniform float uTime;
+      uniform float uPixelRatio;
+      varying vec3 vColor;
+      varying float vTwinkle;
+      void main() {
+        vColor = color;
+        vTwinkle = 0.58 + 0.42 * sin(uTime * (0.7 + aPhase * 0.12) + aPhase);
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = aSize * uPixelRatio * vTwinkle * 2.15;
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uMap;
+      varying vec3 vColor;
+      varying float vTwinkle;
+      void main() {
+        vec4 spark = texture2D(uMap, gl_PointCoord);
+        if (spark.a < 0.04) discard;
+        gl_FragColor = vec4(vColor, spark.a * vTwinkle);
+      }
+    `,
+    vertexColors: true,
+    transparent: true,
+    depthWrite: false,
+    toneMapped: false,
+    blending: THREE.AdditiveBlending,
+  })
+  const stars = new THREE.Points(starGeometry, starMaterial)
+  stars.renderOrder = -1
+  group.add(stars)
+
+  const update = (delta: number, elapsed: number) => {
+    group.rotation.y += delta * 0.006
+    starMaterial.uniforms.uTime.value = elapsed
+  }
+
+  const setPixelRatio = (value: number) => {
+    starMaterial.uniforms.uPixelRatio.value = value
+  }
+
+  const dispose = () => {
+    nebulaGeometry.dispose()
+    nebulaMaterial.dispose()
+    nebulaMap.dispose()
+    starGeometry.dispose()
+    starMaterial.dispose()
+    starMap.dispose()
+  }
+
+  return { group, update, setPixelRatio, dispose }
 }
 
 const createSunSprite = () => {
@@ -479,15 +658,16 @@ export function createGlobe3d(
 ): Globe3dController {
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    alpha: true,
     antialias: window.devicePixelRatio < 1.5,
     powerPreference: 'high-performance',
   })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+  renderer.setClearColor(STYLE.bg, 1)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.NoToneMapping
 
   const scene = new THREE.Scene()
+  scene.background = new THREE.Color(STYLE.bg)
   const globe = new THREE.Group()
   scene.add(globe)
 
@@ -591,8 +771,8 @@ export function createGlobe3d(
   const { group: holoBase, geometries: holoGeometries, materials: holoMaterials } = createHoloBase()
   scene.add(holoBase)
 
-  const stars = createStars()
-  scene.add(stars)
+  const cosmos = createCosmosBackground()
+  scene.add(cosmos.group)
 
   const { sprite: sunSprite, texture: sunTexture, material: sunMaterial } = createSunSprite()
   sunSprite.position.copy(sunDir).multiplyScalar(GLOBE_RADIUS * 1.18)
@@ -608,7 +788,7 @@ export function createGlobe3d(
   rimLight.position.copy(sunDir).multiplyScalar(-320)
   scene.add(rimLight)
 
-  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 2000)
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 4000)
   camera.position.copy(chinaDirection).multiplyScalar(GLOBE_RADIUS * 3.05)
   camera.position.y += GLOBE_RADIUS * 0.18
 
@@ -691,6 +871,7 @@ export function createGlobe3d(
     camera.aspect = width / height
     camera.updateProjectionMatrix()
     glow.setResolution(width, height)
+    cosmos.setPixelRatio(renderer.getPixelRatio())
 
     const verticalDistance = GLOBE_RADIUS / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
     const horizontalDistance = verticalDistance / Math.max(camera.aspect, 0.55)
@@ -711,6 +892,7 @@ export function createGlobe3d(
     clouds.rotation.y += delta * 0.01
     orbitA.group.rotation.y += delta * 0.06
     orbitB.group.rotation.y -= delta * 0.04
+    cosmos.update(delta, clock.elapsedTime)
 
     glow.update(clock.elapsedTime)
 
@@ -755,8 +937,7 @@ export function createGlobe3d(
     orbitB.nodeMaterial.dispose()
     holoGeometries.forEach((geometry) => geometry.dispose())
     holoMaterials.forEach((material) => material.dispose())
-    stars.geometry.dispose()
-    ;(stars.material as THREE.Material).dispose()
+    cosmos.dispose()
     sunTexture.dispose()
     sunMaterial.dispose()
     renderer.dispose()
