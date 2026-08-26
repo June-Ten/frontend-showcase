@@ -88,6 +88,8 @@ export async function createComplianceMindmapGraph(container: HTMLElement): Prom
           { key: 'left', placement: [0, 0.5] },
           { key: 'right', placement: [1, 0.5] },
         ],
+        // G6 这个字段名叫 innerHTML，类型是 string | HTMLElement。
+        // 这里返回的是已经 mount 了 ComplianceNodeCard.vue 的 DOM，不是 HTML 字符串。
         innerHTML: (datum: NodeData) =>
           renderComplianceNodeVue(getPayload(datum), String(datum.id)),
       },
