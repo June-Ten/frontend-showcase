@@ -46,7 +46,7 @@ const layoutEdgeDefs: LayoutEdgeDef[] = [
 
 export function computeComplianceLayout(): ComplianceLayout {
   const graph = new dagre.graphlib.Graph()
-  graph.setGraph({ rankdir: 'LR', nodesep: 52, ranksep: 112 })
+  graph.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 108 })
   graph.setDefaultEdgeLabel(() => ({}))
 
   for (const node of layoutNodeDefs) {

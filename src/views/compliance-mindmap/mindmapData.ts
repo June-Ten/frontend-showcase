@@ -14,12 +14,22 @@ export type MindmapNodeKind =
 /** 合规判定：中间节点疑似违规，最终节点合规/违规 */
 export type ComplianceVerdict = 'compliant' | 'suspected' | 'violation'
 
+export interface MindmapCitation {
+  label: string
+  count: number
+}
+
 export interface MindmapNodePayload extends Record<string, unknown> {
   kind: MindmapNodeKind
   title: string
   content?: string
   subtitle?: string
   verdict?: ComplianceVerdict
+  footer?: string
+  citation?: MindmapCitation
+  viewLink?: string
+  expandText?: string
+  expanded?: boolean
 }
 
 interface ComplianceNodeDef {
@@ -38,14 +48,15 @@ export function complianceEdgeId(source: string, target: string) {
 }
 
 const complianceNodeDefs: ComplianceNodeDef[] = [
-  { id: 'root', data: { kind: 'file', title: '资质证书.docx' } },
+  { id: 'root', data: { kind: 'file', title: '文件开始解析' } },
   {
     id: 'summary',
     data: {
       kind: 'section',
       title: '综合管理要求',
       content:
-        '围绕资质、授权、履约与数据安全\n四个维度，对合同执行全过程开展\n合规核验，重点核查供应商资质有\n效性、审批链条完整性与档案留存\n要求，识别潜在违规风险点，形成\n可追溯的核验结论与整改建议。',
+        '围绕资质、授权、履约与数据安全四个维度，对合同执行全过程开展合规核验，重点核查供应商资质有效性、审批链条完整性与档案留存要求，识别潜在违规风险点，形成可追溯的核验结论与整改建议。',
+      footer: '本文档属于部门规章级法规',
     },
   },
   {
@@ -54,7 +65,8 @@ const complianceNodeDefs: ComplianceNodeDef[] = [
       kind: 'section',
       title: '业务背景',
       content:
-        '项目涉及政府采购、数据服务与工\n程交付，合同类型多、监管口径不\n一，需按合同类型匹配对应监管要\n求，逐项识别材料、流程与责任边\n界，明确各环节的合规义务主体，\n为后续分项分析提供业务基线。',
+        '项目涉及政府采购、数据服务与工程交付，合同类型多、监管口径不一，需按合同类型匹配对应监管要求，逐项识别材料、流程与责任边界，明确各环节的合规义务主体，为后续分项分析提供业务基线。',
+      footer: '点击查看文章详情',
     },
   },
   {
@@ -86,7 +98,7 @@ const complianceNodeDefs: ComplianceNodeDef[] = [
       kind: 'analysis-blue',
       title: '采购合同分析',
       content:
-        '已核验采购方式、预算批复与供应\n商资质，评审记录完整，中标公示\n与合同签订时序合规，验收单据与\n付款凭证一一对应，关键流程材料\n齐备且全程可追溯。',
+        '已核验采购方式、预算批复与供应商资质，评审记录完整，中标公示与合同签订时序合规，验收单据与付款凭证一一对应，关键流程材料齐备且全程可追溯。',
       verdict: 'compliant',
     },
   },
@@ -95,7 +107,7 @@ const complianceNodeDefs: ComplianceNodeDef[] = [
       kind: 'analysis-yellow',
       title: '服务合同分析',
       content:
-        '数据处理条款未明确留存期限，部\n分接口调用超出授权清单范围，访\n问日志与备份记录不完整，个别环\n节缺少安全评估报告，需补充佐证\n材料后再行判定。',
+        '数据处理条款未明确留存期限，部分接口调用超出授权清单范围，访问日志与备份记录不完整，个别环节缺少安全评估报告，需补充佐证材料后再行判定。',
       verdict: 'suspected',
     },
   },
@@ -104,7 +116,7 @@ const complianceNodeDefs: ComplianceNodeDef[] = [
       kind: 'analysis-yellow',
       title: '工程合同分析',
       content:
-        '个别设计变更尚未见完整审批链，\n两笔过程签证金额与台账不符，隐\n蔽工程影像资料留存不全，结算书\n部分单价缺少组价依据，需补齐签\n证与验收资料。',
+        '个别设计变更尚未见完整审批链，两笔过程签证金额与台账不符，隐蔽工程影像资料留存不全，结算书部分单价缺少组价依据，需补齐签证与验收资料。',
       verdict: 'suspected',
     },
   },
@@ -113,7 +125,11 @@ const complianceNodeDefs: ComplianceNodeDef[] = [
       kind: 'advice',
       title: '合规判定建议',
       content:
-        '维持现有归档与审批要求，按年度\n复核供应商资质材料，对验收与付\n款流程做抽样检查，无需额外整改\n措施。',
+        '维持现有归档与审批要求，按年度复核供应商资质材料，对验收与付款流程做抽样检查，无需额外整改措施。',
+      expandText:
+        '采购档案齐全、审批链完整，建议按现有内控制度持续抽检，无需启动专项整改。',
+      citation: { label: '法律法规依据', count: 1 },
+      viewLink: '查看第十二条内容',
       verdict: 'compliant',
     },
   },
@@ -122,7 +138,11 @@ const complianceNodeDefs: ComplianceNodeDef[] = [
       kind: 'advice',
       title: '合规判定建议',
       content:
-        '限期补充授权清单与留存期限约\n定，完善访问日志与备份审计记\n录，补做数据安全评估并归档，完\n成数据处理活动台账登记。',
+        '限期补充授权清单与留存期限约定，完善访问日志与备份审计记录，补做数据安全评估并归档，完成数据处理活动台账登记。',
+      expandText:
+        '建议在 15 个工作日内补齐授权范围、留存期限与安全评估报告，完成前暂停超范围接口调用。',
+      citation: { label: '法律法规依据', count: 2 },
+      viewLink: '查看第二十八条内容',
       verdict: 'suspected',
     },
   },
@@ -131,7 +151,11 @@ const complianceNodeDefs: ComplianceNodeDef[] = [
       kind: 'advice',
       title: '合规判定建议',
       content:
-        '补办设计变更的完整审批手续，核\n对签证金额并更正台账差异，补齐\n隐蔽工程验收影像资料，完成后再\n进行工程结算确认。',
+        '补办设计变更的完整审批手续，核对签证金额并更正台账差异，补齐隐蔽工程验收影像资料，完成后再进行工程结算确认。',
+      expandText:
+        '签证与验收资料未闭环前，工程结算不得作为付款依据，需由项目负责人书面确认补件清单。',
+      citation: { label: '法律法规依据', count: 1 },
+      viewLink: '查看第四十一条内容',
       verdict: 'suspected',
     },
   },
@@ -141,7 +165,7 @@ const complianceNodeDefs: ComplianceNodeDef[] = [
       kind: 'conclusion',
       title: '最终结论',
       content:
-        '本次核验存在多项需整改事项，数\n据安全与工程签证问题突出，整改\n完成并复核通过前，不建议关闭本\n次合规审查。',
+        '存在多项待整改事项，数据安全与工程签证问题突出，复核通过前不建议关闭本次审查。',
       verdict: 'violation',
     },
   },
@@ -289,13 +313,27 @@ export function buildComplianceGraphData(): GraphData {
 }
 
 export const NODE_SIZE: Record<MindmapNodeKind, [number, number]> = {
-  file: [184, 68],
-  section: [280, 190],
-  policy: [280, 192],
-  'analysis-blue': [300, 196],
-  'analysis-yellow': [300, 196],
-  advice: [280, 176],
-  conclusion: [280, 172],
+  file: [204, 42],
+  section: [268, 214],
+  policy: [268, 214],
+  'analysis-blue': [276, 156],
+  'analysis-yellow': [276, 156],
+  advice: [300, 236],
+  conclusion: [228, 112],
+}
+
+export const MINIMAP_NODE_COLOR: Record<MindmapNodeKind, { fill: string; stroke: string }> = {
+  file: { fill: '#e8f3ff', stroke: '#b7d4f5' },
+  section: { fill: '#fff8e6', stroke: '#ead7a3' },
+  policy: { fill: '#fff8e6', stroke: '#ead7a3' },
+  'analysis-blue': { fill: '#e8f4ff', stroke: '#7eb6ea' },
+  'analysis-yellow': { fill: '#fff8e6', stroke: '#ead7a3' },
+  advice: { fill: '#e8f4ff', stroke: '#6ba9e8' },
+  conclusion: { fill: '#e8f6ee', stroke: '#b5d9c4' },
+}
+
+export function getComplianceNodeKind(id: string): MindmapNodeKind {
+  return complianceNodeById.get(id)?.data.kind ?? 'file'
 }
 
 export function getNodeSize(kind: MindmapNodeKind): [number, number] {
