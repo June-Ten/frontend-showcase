@@ -33,9 +33,9 @@ onBeforeUnmount(() => {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
-  color: #e8f4ff;
+  color: #9fd4ee;
   font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  background: #010309;
+  background: #020814;
 }
 
 .earth-view__header {
@@ -49,7 +49,7 @@ onBeforeUnmount(() => {
 .earth-view__header span {
   display: block;
   margin-bottom: 8px;
-  color: #6ec8ff;
+  color: #9fd4ee;
   font-size: 13px;
   letter-spacing: 0.18em;
 }
@@ -72,7 +72,7 @@ onBeforeUnmount(() => {
   right: clamp(24px, 4vw, 56px);
   bottom: 28px;
   margin: 0;
-  color: rgba(150, 190, 220, 0.45);
+  color: rgba(122, 170, 233, 0.55);
   font-size: 12px;
   letter-spacing: 0.12em;
   pointer-events: none;
@@ -83,7 +83,7 @@ onBeforeUnmount(() => {
 html.globe-page,
 html.globe-page body {
   overflow: hidden;
-  background: #010309;
+  background: #020814;
 }
 
 html.globe-page #app {
