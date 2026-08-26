@@ -13,11 +13,6 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="earth-view">
-    <header class="earth-view__header">
-      <span>3D 地球</span>
-      <h1>中国区域高亮</h1>
-    </header>
-
     <section class="earth-view__stage">
       <Globe3d />
     </section>
@@ -36,29 +31,6 @@ onBeforeUnmount(() => {
   color: #9fd4ee;
   font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   background: #02010c;
-}
-
-.earth-view__header {
-  position: absolute;
-  z-index: 4;
-  top: clamp(24px, 4vh, 48px);
-  left: clamp(24px, 4vw, 56px);
-  pointer-events: none;
-}
-
-.earth-view__header span {
-  display: block;
-  margin-bottom: 8px;
-  color: #9fd4ee;
-  font-size: 13px;
-  letter-spacing: 0.18em;
-}
-
-.earth-view__header h1 {
-  margin: 0;
-  font-size: clamp(28px, 3.2vw, 44px);
-  font-weight: 600;
-  letter-spacing: 0.08em;
 }
 
 .earth-view__stage {
