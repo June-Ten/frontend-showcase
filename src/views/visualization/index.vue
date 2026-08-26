@@ -10,45 +10,67 @@
 
     <section class="viz-layout">
       <aside class="viz-column viz-column--left">
-        <PanelCard title="风险点排行榜" class="panel--risk-rank">
-          <div class="risk-rank">
-            <div
-              ref="riskRankViewportRef"
-              class="risk-rank__viewport"
-              @wheel.prevent="handleRiskRankWheel"
+        <PanelCard title="数据概览" class="panel--overview">
+          <ul class="overview">
+            <li
+              v-for="(item, index) in overviewItems"
+              :key="item.label"
+              class="overview__item"
             >
-              <div class="risk-rank__list" :style="{ transform: riskRankTransform }">
-                <div
-                  v-for="(province, index) in provinceRiskRanks"
-                  :key="province.name"
-                  class="risk-rank__item"
-                  :class="{ 'risk-rank__item--top': index < 3 }"
-                >
-                  <span class="risk-rank__index">{{ String(index + 1).padStart(2, '0') }}</span>
-                  <span class="risk-rank__name">{{ province.name }}</span>
-                  <strong class="risk-rank__value">{{ province.value }}</strong>
-                </div>
+              <span class="overview__icon" :class="`overview__icon--${item.icon}`" aria-hidden="true">
+                <svg v-if="item.icon === 'db'" viewBox="0 0 32 32" fill="none">
+                  <ellipse cx="16" cy="8" rx="10" ry="4" />
+                  <path d="M6 8v6c0 2.2 4.5 4 10 4s10-1.8 10-4V8" />
+                  <path d="M6 14v6c0 2.2 4.5 4 10 4s10-1.8 10-4v-6" />
+                </svg>
+                <svg v-else-if="item.icon === 'net'" viewBox="0 0 32 32" fill="none">
+                  <circle cx="16" cy="8" r="3" />
+                  <circle cx="7" cy="22" r="3" />
+                  <circle cx="25" cy="22" r="3" />
+                  <path d="M14 10.5 9 19.2M18 10.5l5 8.7M10 22h12" />
+                </svg>
+                <svg v-else-if="item.icon === 'chart'" viewBox="0 0 32 32" fill="none">
+                  <path d="M5 24V8M5 24h22" />
+                  <path d="M9 18l5-6 4 3 7-9" />
+                  <circle cx="25" cy="6" r="1.6" fill="currentColor" stroke="none" />
+                </svg>
+                <svg v-else viewBox="0 0 32 32" fill="none">
+                  <path d="M8 11a10 10 0 0 1 16.5-1" />
+                  <path d="M24.5 6v5h-5" />
+                  <path d="M24 21a10 10 0 0 1-16.5 1" />
+                  <path d="M7.5 26v-5h5" />
+                </svg>
+              </span>
+              <div class="overview__meta">
+                <span class="overview__label">{{ item.label }} ({{ item.unit }})</span>
+                <strong class="overview__value">
+                  {{ formatKpiValue(overviewDisplayValues[index] ?? 0, item.decimals) }}
+                </strong>
               </div>
-            </div>
+            </li>
+          </ul>
+        </PanelCard>
+
+        <PanelCard title="业务分类占比" class="panel--category">
+          <div class="split-chart">
+            <div ref="categoryChartRef" class="chart chart--donut" />
+            <ul class="chart-legend">
+              <li
+                v-for="item in businessCategories"
+                :key="item.name"
+                class="chart-legend__item"
+              >
+                <span class="chart-legend__dot" :style="{ '--dot-color': item.color }" />
+                <span class="chart-legend__name">{{ item.name }}</span>
+                <span class="chart-legend__value">{{ item.percent }}</span>
+              </li>
+            </ul>
           </div>
         </PanelCard>
 
-        <PanelCard title="经济运行趋势" class="panel--trend">
-          <div class="tab-bar">
-            <button
-              v-for="tab in trendTabs"
-              :key="tab.key"
-              type="button"
-              class="tab-bar__item"
-              :class="{ 'tab-bar__item--active': activeTrendTab === tab.key }"
-              @click="switchTrendTab(tab.key)"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
+        <PanelCard title="数据趋势分析" class="panel--trend">
           <div ref="trendChartRef" class="chart chart--trend" />
         </PanelCard>
-
       </aside>
 
       <section class="viz-center">
@@ -67,41 +89,42 @@
       </section>
 
       <aside class="viz-column viz-column--right">
-        <PanelCard title="区域发展对比" class="panel--ranking">
-          <div class="tab-bar tab-bar--compact">
-            <button
-              v-for="tab in rankTabs"
-              :key="tab.key"
-              type="button"
-              class="tab-bar__item"
-              :class="{ 'tab-bar__item--active': activeRankTab === tab.key }"
-              @click="switchRankTab(tab.key)"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
-          <div ref="rankChartRef" class="chart chart--rank" />
-        </PanelCard>
-
-        <PanelCard title="产业结构分析" class="panel--industry">
-          <div class="industry-chart">
-            <div ref="industryChartRef" class="chart chart--industry" />
-            <ul class="industry-legend">
+        <PanelCard title="实时监测" class="panel--monitor">
+          <div class="monitor">
+            <div ref="monitorChartRef" class="chart chart--monitor" />
+            <ul class="monitor-stats">
               <li
-                v-for="item in industryStructure"
-                :key="item.name"
-                class="industry-legend__item"
+                v-for="item in monitorStats"
+                :key="item.label"
+                class="monitor-stats__item"
+                :class="{ 'monitor-stats__item--alert': item.alert }"
               >
-                <span
-                  class="industry-legend__dot"
-                  :style="{ '--dot-color': item.legendColor }"
-                />
-                <span class="industry-legend__name">{{ item.name }}</span>
-                <span class="industry-legend__percent">{{ item.percent }}</span>
-                <span class="industry-legend__value">{{ item.value.toLocaleString() }} 亿元</span>
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}<i>{{ item.unit }}</i></strong>
               </li>
             </ul>
           </div>
+        </PanelCard>
+
+        <PanelCard title="预警统计" class="panel--alert">
+          <div class="split-chart">
+            <div ref="alertChartRef" class="chart chart--donut" />
+            <ul class="chart-legend">
+              <li
+                v-for="item in alertLevels"
+                :key="item.name"
+                class="chart-legend__item"
+              >
+                <span class="chart-legend__dot" :style="{ '--dot-color': item.color }" />
+                <span class="chart-legend__name">{{ item.name }}</span>
+                <span class="chart-legend__value">{{ item.value }}</span>
+              </li>
+            </ul>
+          </div>
+        </PanelCard>
+
+        <PanelCard title="资源使用情况" class="panel--resource">
+          <div ref="resourceChartRef" class="chart chart--resource" />
         </PanelCard>
       </aside>
     </section>
@@ -109,14 +132,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import backgroundImg from '../../assets/img/bigscreen/bigscreen_bg.webp'
+import nanjingMap from '../../assets/map/320100_full.json'
 import China3dMap from './China3dMap.vue'
 
 type ChartElement = HTMLElement | null
-type TrendTabKey = 'gdp' | 'industry' | 'investment' | 'retail'
-type RankTabKey = 'gdp' | 'growth'
 
 const PanelCard = defineComponent({
   name: 'PanelCard',
@@ -148,8 +170,16 @@ const kpiItems = [
   { label: '监测覆盖率', value: 98.6, unit: '%', decimals: 1 },
 ] as const
 
+const overviewItems = [
+  { label: '数据总量', unit: 'TB', value: 12345.67, decimals: 2, icon: 'db' },
+  { label: '数据源', unit: '个', value: 1234, decimals: 0, icon: 'net' },
+  { label: '今日新增', unit: 'GB', value: 456.78, decimals: 2, icon: 'chart' },
+  { label: '累计调用', unit: '次', value: 9876543, decimals: 0, icon: 'sync' },
+] as const
+
 const KPI_COUNT_DURATION = 1400
 const kpiDisplayValues = ref<number[]>(kpiItems.map(() => 0))
+const overviewDisplayValues = ref<number[]>(overviewItems.map(() => 0))
 let kpiAnimationFrame = 0
 
 const formatKpiValue = (value: number, decimals: number) =>
@@ -165,6 +195,7 @@ const startKpiCountUp = () => {
     const progress = Math.min((now - startTime) / KPI_COUNT_DURATION, 1)
     const eased = 1 - Math.pow(1 - progress, 3)
     kpiDisplayValues.value = kpiItems.map((item) => item.value * eased)
+    overviewDisplayValues.value = overviewItems.map((item) => item.value * eased)
 
     if (progress < 1) {
       kpiAnimationFrame = window.requestAnimationFrame(step)
@@ -178,226 +209,71 @@ const stopKpiCountUp = () => {
   window.cancelAnimationFrame(kpiAnimationFrame)
 }
 
-const trendChartRef = ref<ChartElement>(null)
-const rankChartRef = ref<ChartElement>(null)
-const industryChartRef = ref<ChartElement>(null)
-
-const activeTrendTab = ref<TrendTabKey>('gdp')
-const activeRankTab = ref<RankTabKey>('gdp')
-
-const chartInstances: echarts.ECharts[] = []
-
-const provinceRiskPointValues = [
-  { name: '广东省', value: 482 },
-  { name: '江苏省', value: 456 },
-  { name: '山东省', value: 431 },
-  { name: '浙江省', value: 418 },
-  { name: '河南省', value: 396 },
-  { name: '四川省', value: 382 },
-  { name: '河北省', value: 365 },
-  { name: '湖北省', value: 348 },
-  { name: '湖南省', value: 333 },
-  { name: '安徽省', value: 318 },
-  { name: '福建省', value: 304 },
-  { name: '辽宁省', value: 286 },
-  { name: '江西省', value: 271 },
-  { name: '陕西省', value: 256 },
-  { name: '云南省', value: 243 },
-  { name: '广西壮族自治区', value: 231 },
-  { name: '贵州省', value: 219 },
-  { name: '山西省', value: 207 },
-  { name: '重庆市', value: 196 },
-  { name: '黑龙江省', value: 184 },
-  { name: '内蒙古自治区', value: 173 },
-  { name: '吉林省', value: 161 },
-  { name: '新疆维吾尔自治区', value: 152 },
-  { name: '甘肃省', value: 141 },
-  { name: '海南省', value: 126 },
-  { name: '上海市', value: 118 },
-  { name: '北京市', value: 109 },
-  { name: '天津市', value: 96 },
-  { name: '宁夏回族自治区', value: 84 },
-  { name: '青海省', value: 72 },
-  { name: '西藏自治区', value: 58 },
-  { name: '台湾省', value: 44 },
-  { name: '香港特别行政区', value: 31 },
-  { name: '澳门特别行政区', value: 18 },
-]
-
-const RISK_RANK_ITEM_STEP = 36
-const RISK_RANK_AUTO_INTERVAL = 2200
-const provinceRiskRanks = provinceRiskPointValues
-const riskRankListHeight = provinceRiskRanks.length * RISK_RANK_ITEM_STEP - 6
-const riskRankViewportRef = ref<HTMLElement | null>(null)
-const riskRankOffset = ref(0)
-
-let riskRankTargetOffset = 0
-let riskRankAnimationFrame = 0
-let riskRankTimer = 0
-let riskRankAutoPausedUntil = 0
-
-const getMaxRiskRankOffset = () => {
-  const viewportHeight = riskRankViewportRef.value?.clientHeight ?? 0
-  return Math.max(riskRankListHeight - viewportHeight, 0)
-}
-
-const riskRankTransform = computed(
-  () => `translateY(-${Math.round(riskRankOffset.value)}px)`,
-)
-
-const nudgeRiskRank = (direction: 1 | -1) => {
-  const next = riskRankTargetOffset + direction * RISK_RANK_ITEM_STEP
-  riskRankTargetOffset = Math.min(Math.max(next, 0), getMaxRiskRankOffset())
-}
-
-const handleRiskRankWheel = (event: WheelEvent) => {
-  riskRankAutoPausedUntil = performance.now() + 1200
-  nudgeRiskRank(event.deltaY >= 0 ? 1 : -1)
-}
-
-const animateRiskRank = () => {
-  const distance = riskRankTargetOffset - riskRankOffset.value
-  riskRankOffset.value += distance * 0.16
-
-  if (Math.abs(distance) < 0.04) {
-    riskRankOffset.value = riskRankTargetOffset
-  }
-
-  riskRankAnimationFrame = window.requestAnimationFrame(animateRiskRank)
-}
-
-const startRiskRankScroll = () => {
-  animateRiskRank()
-  riskRankTimer = window.setInterval(() => {
-    if (performance.now() < riskRankAutoPausedUntil) return
-    if (riskRankTargetOffset >= getMaxRiskRankOffset()) {
-      riskRankTargetOffset = 0
-      return
-    }
-    nudgeRiskRank(1)
-  }, RISK_RANK_AUTO_INTERVAL)
-}
-
-const stopRiskRankScroll = () => {
-  window.cancelAnimationFrame(riskRankAnimationFrame)
-  window.clearInterval(riskRankTimer)
-}
-
-const trendTabs = [
-  { key: 'gdp' as const, label: 'GDP' },
-  { key: 'industry' as const, label: '工业增加值' },
-  { key: 'investment' as const, label: '固定资产投资' },
-  { key: 'retail' as const, label: '社会消费品零售总额' },
-]
-
-const trendData: Record<TrendTabKey, { months: string[]; values: number[]; unit: string }> = {
-  gdp: {
-    months: ['2023-05', '2023-07', '2023-09', '2023-11', '2024-01', '2024-03', '2024-05'],
-    values: [108420, 112680, 116350, 119870, 121560, 124210, 126058],
-    unit: '亿元',
-  },
-  industry: {
-    months: ['2023-05', '2023-07', '2023-09', '2023-11', '2024-01', '2024-03', '2024-05'],
-    values: [26840, 27680, 28420, 29150, 29860, 30540, 312890],
-    unit: '亿元',
-  },
-  investment: {
-    months: ['2023-05', '2023-07', '2023-09', '2023-11', '2024-01', '2024-03', '2024-05'],
-    values: [43820, 45260, 46890, 48120, 49380, 50460, 512305],
-    unit: '亿元',
-  },
-  retail: {
-    months: ['2023-05', '2023-07', '2023-09', '2023-11', '2024-01', '2024-03', '2024-05'],
-    values: [41280, 42860, 44120, 45680, 46240, 47120, 478306],
-    unit: '亿元',
-  },
-}
-
-const rankTabs = [
-  { key: 'gdp' as const, label: 'GDP(亿元)' },
-  { key: 'growth' as const, label: '增速(%)' },
-]
-
-const regionRankData = [
-  { name: '广东省', gdp: 126058, growth: 5.8 },
-  { name: '江苏省', gdp: 122875, growth: 5.5 },
-  { name: '山东省', gdp: 90210, growth: 5.2 },
-  { name: '浙江省', gdp: 82530, growth: 5.0 },
-  { name: '河南省', gdp: 59126, growth: 4.8 },
-  { name: '四川省', gdp: 56749, growth: 5.1 },
-  { name: '湖北省', gdp: 55803, growth: 5.3 },
-  { name: '福建省', gdp: 54355, growth: 4.9 },
-  { name: '湖南省', gdp: 50048, growth: 4.6 },
-  { name: '安徽省', gdp: 47051, growth: 5.4 },
-  { name: '上海市', gdp: 47219, growth: 4.7 },
-  { name: '河北省', gdp: 43944, growth: 4.4 },
-  { name: '北京市', gdp: 43761, growth: 5.0 },
-  { name: '陕西省', gdp: 33786, growth: 4.3 },
-  { name: '江西省', gdp: 32200, growth: 4.5 },
-  { name: '重庆市', gdp: 30146, growth: 5.7 },
-  { name: '辽宁省', gdp: 30209, growth: 4.1 },
-  { name: '云南省', gdp: 30021, growth: 3.9 },
-  { name: '广西壮族自治区', gdp: 27202, growth: 3.8 },
-  { name: '山西省', gdp: 25698, growth: 3.4 },
-  { name: '内蒙古自治区', gdp: 24627, growth: 6.1 },
-  { name: '贵州省', gdp: 20913, growth: 4.2 },
-  { name: '新疆维吾尔自治区', gdp: 19126, growth: 6.4 },
-  { name: '天津市', gdp: 16737, growth: 4.0 },
-  { name: '黑龙江省', gdp: 15884, growth: 3.2 },
-  { name: '吉林省', gdp: 13531, growth: 5.9 },
-  { name: '甘肃省', gdp: 11864, growth: 6.0 },
-  { name: '海南省', gdp: 7551, growth: 6.3 },
-  { name: '宁夏回族自治区', gdp: 5315, growth: 5.6 },
-  { name: '青海省', gdp: 3799, growth: 4.8 },
-  { name: '西藏自治区', gdp: 2393, growth: 8.2 },
-]
-
-const RANK_WINDOW_SIZE = 8
-const RANK_CAROUSEL_INTERVAL = 2400
-
-let rankCarouselStart = 0
-let rankCarouselTimer = 0
-
-const getSortedRankData = (key: RankTabKey) =>
-  [...regionRankData].sort((a, b) => (key === 'gdp' ? b.gdp - a.gdp : b.growth - a.growth))
-
-const industryStructure = [
-  {
-    name: '第一产业',
-    value: 89463,
-    percent: '7.1%',
-    legendColor: '#00f28f',
-    gradient: [
-      { offset: 0, color: '#00f28f' },
-      { offset: 1, color: '#00c9a7' },
-    ],
-    glow: 'rgba(0, 242, 143, 0.55)',
-  },
-  {
-    name: '第二产业',
-    value: 470072,
-    percent: '37.3%',
-    legendColor: '#6a11cb',
-    gradient: [
-      { offset: 0, color: '#3a47d5' },
-      { offset: 1, color: '#6a11cb' },
-    ],
-    glow: 'rgba(106, 17, 203, 0.55)',
-  },
-  {
-    name: '第三产业',
-    value: 701047,
-    percent: '55.6%',
-    legendColor: '#6dd5ed',
-    gradient: [
-      { offset: 0, color: '#2193b0' },
-      { offset: 1, color: '#6dd5ed' },
-    ],
-    glow: 'rgba(33, 147, 176, 0.55)',
-  },
+const businessCategories = [
+  { name: '公共服务', value: 4321, percent: '35%', color: '#1b8cff' },
+  { name: '城市管理', value: 3086, percent: '25%', color: '#00d4c8' },
+  { name: '交通出行', value: 2469, percent: '20%', color: '#3dff8a' },
+  { name: '生态环境', value: 1235, percent: '10%', color: '#ffd23d' },
+  { name: '产业经济', value: 1234, percent: '10%', color: '#ff5a7a' },
 ] as const
 
-const industryTotal = industryStructure.reduce((sum, item) => sum + item.value, 0)
+const categoryTotal = businessCategories.reduce((sum, item) => sum + item.value, 0)
+
+const alertLevels = [
+  { name: '一级告警', value: 8, color: '#ff3e6c' },
+  { name: '二级告警', value: 18, color: '#ff8a22' },
+  { name: '三级告警', value: 20, color: '#ffd23d' },
+  { name: '四级告警', value: 10, color: '#4cc9ff' },
+] as const
+
+const alertTotal = alertLevels.reduce((sum, item) => sum + item.value, 0)
+
+const monitorStats = [
+  { label: '监测点', value: '1,234', unit: '个', alert: false },
+  { label: '在线率', value: '98.6', unit: '%', alert: false },
+  { label: '告警数', value: '56', unit: '条', alert: true },
+] as const
+
+const monitorPoints = [
+  { name: '鼓楼', value: [118.760828, 32.082331, 88] },
+  { name: '玄武', value: [118.842824, 32.065088, 82] },
+  { name: '秦淮', value: [118.816938, 32.01241, 80] },
+  { name: '建邺', value: [118.710435, 32.009393, 76] },
+  { name: '栖霞', value: [118.958759, 32.159333, 70] },
+  { name: '雨花台', value: [118.694503, 31.938238, 68] },
+  { name: '江宁', value: [118.830792, 31.85463, 74] },
+  { name: '浦口', value: [118.563239, 32.053249, 66] },
+]
+
+const monitorLines = [
+  ['鼓楼', '玄武'],
+  ['玄武', '秦淮'],
+  ['秦淮', '建邺'],
+  ['建邺', '鼓楼'],
+  ['鼓楼', '浦口'],
+  ['玄武', '栖霞'],
+  ['秦淮', '雨花台'],
+  ['雨花台', '江宁'],
+  ['建邺', '江宁'],
+] as const
+
+const resourceUsage = [
+  { name: 'CPU使用率', value: 68, from: '#0a4a9e', to: '#28c5ff' },
+  { name: '内存使用率', value: 72, from: '#0a6b52', to: '#3dff8a' },
+  { name: '存储使用率', value: 65, from: '#8a5a12', to: '#ffd23d' },
+  { name: '网络使用率', value: 48, from: '#6a1b9e', to: '#c77dff' },
+]
+
+const trendMonths = ['1月', '2月', '3月', '4月', '5月', '6月']
+const trendValues = [480, 720, 560, 980, 1180, 1420]
+
+const categoryChartRef = ref<ChartElement>(null)
+const trendChartRef = ref<ChartElement>(null)
+const monitorChartRef = ref<ChartElement>(null)
+const alertChartRef = ref<ChartElement>(null)
+const resourceChartRef = ref<ChartElement>(null)
+
+const chartInstances: echarts.ECharts[] = []
 
 const createChart = (el: ChartElement) => {
   if (!el) return null
@@ -406,154 +282,25 @@ const createChart = (el: ChartElement) => {
   return chart
 }
 
-const getTrendOption = (key: TrendTabKey): echarts.EChartsOption => {
-  const data = trendData[key]
-  const lineColor = '#1890ff'
-  return {
-    grid: { top: 12, right: 16, bottom: 24, left: 48 },
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: 'rgba(3, 14, 36, 0.92)',
-      borderColor: lineColor,
-      borderWidth: 1,
-      textStyle: { color: '#d9ecff' },
-      formatter: (params: unknown) => {
-        const items = params as { axisValue: string; value: number }[]
-        const point = items[0]
-        if (!point) return ''
-        return `${point.axisValue}<br/><span style="color:#fff;font-size:14px;font-weight:700">${point.value.toLocaleString()}</span>`
-      },
-    },
-    xAxis: {
-      type: 'category',
-      boundaryGap: false,
-      data: data.months,
-      axisLine: { lineStyle: { color: 'rgba(120, 155, 200, 0.25)' } },
-      axisLabel: { color: 'rgba(186, 214, 240, 0.75)', fontSize: 10 },
-      axisTick: { show: false },
-    },
-    yAxis: {
-      type: 'value',
-      axisLine: { show: false },
-      axisLabel: {
-        color: 'rgba(186, 214, 240, 0.75)',
-        fontSize: 10,
-        formatter: (value: number) => (value >= 10000 ? `${Math.round(value / 1000)}k` : String(value)),
-      },
-      splitLine: { show: false },
-    },
-    series: [
-      {
-        type: 'line',
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 6,
-        data: data.values,
-        lineStyle: { color: lineColor, width: 2 },
-        itemStyle: { color: '#a0d9ff', borderColor: '#ffffff', borderWidth: 2 },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(24, 144, 255, 0.45)' },
-            { offset: 1, color: 'rgba(24, 144, 255, 0)' },
-          ]),
-        },
-        emphasis: {
-          scale: true,
-          itemStyle: {
-            color: '#ffffff',
-            borderColor: lineColor,
-            borderWidth: 2,
-            shadowColor: 'rgba(24, 144, 255, 0.85)',
-            shadowBlur: 12,
-          },
-        },
-      },
-    ],
-  }
+const tooltipTheme = {
+  backgroundColor: 'rgba(3, 14, 36, 0.92)',
+  borderColor: '#1b8cff',
+  borderWidth: 1,
+  textStyle: { color: '#d9ecff' },
 }
 
-const getRankOption = (key: RankTabKey): echarts.EChartsOption => {
-  const isGdp = key === 'gdp'
-  const sorted = getSortedRankData(key)
-  const values = sorted.map((item) => (isGdp ? item.gdp : item.growth))
-  const max = Math.max(...values) * 1.08
-
-  return {
-    grid: { top: 4, right: 76, bottom: 8, left: 58 },
-    xAxis: {
-      type: 'value',
-      max,
-      show: false,
-    },
-    yAxis: {
-      type: 'category',
-      inverse: true,
-      data: sorted.map((item) => item.name),
-      axisLabel: {
-        color: '#d5eaff',
-        fontSize: 11,
-        formatter: (name: string) => (name.length > 5 ? `${name.slice(0, 5)}…` : name),
-      },
-      axisLine: { show: false },
-      axisTick: { show: false },
-    },
-    // 轮播窗口：只显示 RANK_WINDOW_SIZE 行，由定时器平移 startValue/endValue
-    dataZoom: [
-      {
-        type: 'inside',
-        yAxisIndex: 0,
-        startValue: rankCarouselStart,
-        endValue: rankCarouselStart + RANK_WINDOW_SIZE - 1,
-        zoomLock: true,
-        zoomOnMouseWheel: false,
-        moveOnMouseWheel: false,
-        moveOnMouseMove: false,
-      },
-    ],
-    series: [
-      {
-        type: 'bar',
-        barWidth: 10,
-        data: sorted.map((item, index) => ({
-          value: isGdp ? item.gdp : item.growth,
-          itemStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-              { offset: 0, color: '#0a4a9e' },
-              { offset: 1, color: index < 3 ? '#28c5ff' : '#1a7fd4' },
-            ]),
-            borderRadius: [0, 4, 4, 0],
-          },
-        })),
-        label: {
-          show: true,
-          position: 'right',
-          color: '#b9d9ff',
-          fontSize: 10,
-          formatter: (params: echarts.DefaultLabelFormatterCallbackParams) => {
-            const dataIndex = params.dataIndex ?? 0
-            const value = typeof params.value === 'number' ? params.value : 0
-            const item = sorted[dataIndex]
-            if (!item) return ''
-            return isGdp
-              ? `${value.toLocaleString()}  +${item.growth}%`
-              : `${value}%  ${item.gdp.toLocaleString()}`
-          },
-        },
-      },
-    ],
-  }
-}
-
-const getIndustryOption = (): echarts.EChartsOption => ({
+const getDonutOption = (
+  data: readonly { name: string; value: number; color: string }[],
+  centerTitle: string,
+  centerValue: string,
+  valueOnTop: boolean,
+): echarts.EChartsOption => ({
   tooltip: {
     trigger: 'item',
-    backgroundColor: 'rgba(3, 14, 36, 0.92)',
-    borderColor: '#1890ff',
-    borderWidth: 1,
-    textStyle: { color: '#d9ecff' },
+    ...tooltipTheme,
     formatter: (params) => {
       const item = params as { name: string; value: number; percent?: number }
-      return `${item.name}<br/>${item.value.toLocaleString()} 亿元 (${item.percent?.toFixed(1)}%)`
+      return `${item.name}<br/>${item.value.toLocaleString()} (${item.percent?.toFixed(1)}%)`
     },
   },
   series: [
@@ -562,20 +309,18 @@ const getIndustryOption = (): echarts.EChartsOption => ({
       radius: ['58%', '78%'],
       center: ['50%', '50%'],
       avoidLabelOverlap: false,
-      padAngle: 1.5,
-      itemStyle: {
-        borderColor: '#050c17',
-        borderWidth: 2,
-        borderRadius: 4,
-      },
+      padAngle: 2,
       label: {
         show: true,
         position: 'center',
-        formatter: () => `{total|${industryTotal.toLocaleString()}}\n{unit|GDP (亿元)}`,
+        formatter: () =>
+          valueOnTop
+            ? `{total|${centerValue}}\n{unit|${centerTitle}}`
+            : `{unit|${centerTitle}}\n{total|${centerValue}}`,
         rich: {
           total: {
             color: '#ffffff',
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: 700,
             lineHeight: 22,
           },
@@ -589,68 +334,202 @@ const getIndustryOption = (): echarts.EChartsOption => ({
       labelLine: { show: false },
       emphasis: {
         scale: true,
-        scaleSize: 6,
-        itemStyle: {
-          shadowBlur: 18,
-        },
+        scaleSize: 4,
       },
-      data: industryStructure.map((item) => ({
+      data: data.map((item) => ({
         name: item.name,
         value: item.value,
         itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 1, 1, [...item.gradient]),
-          shadowColor: item.glow,
-          shadowBlur: 14,
+          color: item.color,
         },
       })),
     },
   ],
 })
 
-const initIndustryChart = () => {
-  createChart(industryChartRef.value)?.setOption(getIndustryOption())
+const getTrendOption = (): echarts.EChartsOption => {
+  const lineColor = '#00e4ff'
+  return {
+    grid: { top: 16, right: 52, bottom: 22, left: 52 },
+    tooltip: {
+      trigger: 'axis',
+      ...tooltipTheme,
+      borderColor: lineColor,
+      formatter: (params: unknown) => {
+        const items = params as { axisValue: string; value: number }[]
+        const point = items[0]
+        if (!point) return ''
+        return `${point.axisValue}<br/><span style="color:#fff;font-size:14px;font-weight:700">${point.value.toLocaleString()}</span>`
+      },
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: true,
+      data: trendMonths,
+      axisLine: { lineStyle: { color: 'rgba(120, 155, 200, 0.25)' } },
+      axisLabel: { color: 'rgba(186, 214, 240, 0.75)', fontSize: 10 },
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: 1500,
+      interval: 300,
+      axisLine: { show: false },
+      axisLabel: { color: 'rgba(186, 214, 240, 0.75)', fontSize: 10 },
+      splitLine: { lineStyle: { color: 'rgba(80, 130, 190, 0.12)' } },
+    },
+    series: [
+      {
+        type: 'line',
+        smooth: false,
+        symbol: 'circle',
+        symbolSize: 6,
+        data: trendValues,
+        lineStyle: {
+          color: lineColor,
+          width: 2,
+          shadowColor: 'rgba(0, 228, 255, 0.85)',
+          shadowBlur: 12,
+        },
+        itemStyle: { color: '#a8f4ff', borderColor: '#ffffff', borderWidth: 2 },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(0, 228, 255, 0.48)' },
+            { offset: 1, color: 'rgba(0, 228, 255, 0)' },
+          ]),
+        },
+      },
+    ],
+  }
 }
+
+const getMonitorOption = (): echarts.EChartsOption => {
+  const pointMap = new Map(monitorPoints.map((item) => [item.name, item.value] as const))
+  const lineData = monitorLines.flatMap(([from, to]) => {
+    const start = pointMap.get(from)
+    const end = pointMap.get(to)
+    if (!start || !end) return []
+    return [{ coords: [[start[0], start[1]], [end[0], end[1]]] }]
+  })
+
+  return {
+    geo: {
+      map: 'nanjing-monitor',
+      roam: false,
+      zoom: 1.06,
+      aspectScale: 0.92,
+      layoutCenter: ['50%', '50%'],
+      layoutSize: '108%',
+      silent: true,
+      label: { show: false },
+      itemStyle: {
+        areaColor: 'rgba(8, 58, 150, 0.62)',
+        borderColor: '#20d8ff',
+        borderWidth: 1,
+        shadowColor: '#0aa6ff',
+        shadowBlur: 14,
+      },
+      emphasis: {
+        itemStyle: { areaColor: 'rgba(8, 58, 150, 0.62)' },
+      },
+    },
+    series: [
+      {
+        type: 'lines',
+        coordinateSystem: 'geo',
+        zlevel: 1,
+        silent: true,
+        polyline: false,
+        effect: {
+          show: true,
+          period: 4,
+          trailLength: 0.35,
+          symbol: 'arrow',
+          symbolSize: 5,
+        },
+        lineStyle: {
+          color: '#7af0ff',
+          width: 1.2,
+          opacity: 0.72,
+          curveness: 0.18,
+        },
+        data: lineData,
+      },
+      {
+        type: 'effectScatter',
+        coordinateSystem: 'geo',
+        zlevel: 2,
+        rippleEffect: { brushType: 'stroke', scale: 3.4, period: 3.6 },
+        symbolSize: (value: number[]) => Math.max(value[2] / 10, 7),
+        itemStyle: {
+          color: '#7af0ff',
+          shadowColor: '#7af0ff',
+          shadowBlur: 12,
+        },
+        data: monitorPoints,
+      },
+    ],
+  }
+}
+
+const getResourceOption = (): echarts.EChartsOption => ({
+  grid: { top: 10, right: 46, bottom: 6, left: 78 },
+  xAxis: {
+    type: 'value',
+    min: 0,
+    max: 100,
+    show: false,
+  },
+  yAxis: {
+    type: 'category',
+    inverse: true,
+    data: resourceUsage.map((item) => item.name),
+    axisLabel: { color: '#d5eaff', fontSize: 11 },
+    axisLine: { show: false },
+    axisTick: { show: false },
+  },
+  series: [
+    {
+      type: 'bar',
+      barWidth: 10,
+      showBackground: true,
+      backgroundStyle: {
+        color: 'rgba(12, 50, 110, 0.5)',
+        borderRadius: 4,
+      },
+      data: resourceUsage.map((item) => ({
+        value: item.value,
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: item.from },
+            { offset: 1, color: item.to },
+          ]),
+          borderRadius: 4,
+        },
+      })),
+      label: {
+        show: true,
+        position: 'right',
+        color: '#b9d9ff',
+        fontSize: 12,
+        formatter: '{c}%',
+      },
+    },
+  ],
+})
 
 const initCharts = () => {
-  createChart(trendChartRef.value)?.setOption(getTrendOption(activeTrendTab.value))
-  createChart(rankChartRef.value)?.setOption(getRankOption(activeRankTab.value))
-  initIndustryChart()
-}
-
-const switchTrendTab = (key: TrendTabKey) => {
-  activeTrendTab.value = key
-  const chart = chartInstances.find((instance) => instance.getDom() === trendChartRef.value)
-  chart?.setOption(getTrendOption(key), true)
-}
-
-const switchRankTab = (key: RankTabKey) => {
-  activeRankTab.value = key
-  rankCarouselStart = 0
-  const chart = chartInstances.find((instance) => instance.getDom() === rankChartRef.value)
-  chart?.setOption(getRankOption(key), true)
-}
-
-const startRankCarousel = () => {
-  rankCarouselTimer = window.setInterval(() => {
-    const chart = chartInstances.find((instance) => instance.getDom() === rankChartRef.value)
-    if (!chart) return
-
-    rankCarouselStart =
-      rankCarouselStart + RANK_WINDOW_SIZE >= regionRankData.length ? 0 : rankCarouselStart + 1
-
-    chart.setOption({
-      dataZoom: [
-        {
-          startValue: rankCarouselStart,
-          endValue: rankCarouselStart + RANK_WINDOW_SIZE - 1,
-        },
-      ],
-    })
-  }, RANK_CAROUSEL_INTERVAL)
-}
-
-const stopRankCarousel = () => {
-  window.clearInterval(rankCarouselTimer)
+  echarts.registerMap('nanjing-monitor', nanjingMap as Parameters<typeof echarts.registerMap>[1])
+  createChart(categoryChartRef.value)?.setOption(
+    getDonutOption(businessCategories, '总数', categoryTotal.toLocaleString('zh-CN'), false),
+  )
+  createChart(trendChartRef.value)?.setOption(getTrendOption())
+  createChart(monitorChartRef.value)?.setOption(getMonitorOption())
+  createChart(alertChartRef.value)?.setOption(
+    getDonutOption(alertLevels, '总告警', String(alertTotal), true),
+  )
+  createChart(resourceChartRef.value)?.setOption(getResourceOption())
 }
 
 const handleResize = () => {
@@ -663,9 +542,8 @@ onMounted(async () => {
   await nextTick()
   initCharts()
   startKpiCountUp()
-  startRiskRankScroll()
-  startRankCarousel()
   window.addEventListener('resize', handleResize)
+  window.requestAnimationFrame(() => handleResize())
 })
 
 onBeforeUnmount(() => {
@@ -673,8 +551,6 @@ onBeforeUnmount(() => {
 
   window.removeEventListener('resize', handleResize)
   stopKpiCountUp()
-  stopRiskRankScroll()
-  stopRankCarousel()
   chartInstances.forEach((chart) => chart.dispose())
 })
 </script>
@@ -768,11 +644,11 @@ $text-muted: #80a8d8;
 }
 
 .viz-column--left {
-  grid-template-rows: 1.2fr 1fr;
+  grid-template-rows: 1.32fr 1fr 1fr;
 }
 
 .viz-column--right {
-  grid-template-rows: 1.2fr 1fr;
+  grid-template-rows: 1.32fr 1fr 1fr;
 }
 
 .viz-center {
@@ -805,7 +681,6 @@ $text-muted: #80a8d8;
   background:
     linear-gradient(180deg, rgba(32, 110, 224, 0.18), rgba(6, 25, 66, 0.55));
 
-  // 顶部高亮线
   &::before {
     content: '';
     position: absolute;
@@ -816,7 +691,6 @@ $text-muted: #80a8d8;
     background: linear-gradient(90deg, transparent, rgba(69, 199, 255, 0.85), transparent);
   }
 
-  // 左下角斜向流光
   &::after {
     content: '';
     position: absolute;
@@ -870,7 +744,6 @@ $text-muted: #80a8d8;
   padding: 0 14px 0 16px;
   background: linear-gradient(90deg, rgba(32, 110, 224, 0.28), rgba(32, 110, 224, 0.04) 62%, transparent);
 
-  // 底部渐隐分隔线：靠左一段更亮，向右淡出
   &::after {
     content: '';
     position: absolute;
@@ -895,7 +768,6 @@ $text-muted: #80a8d8;
     font-weight: 700;
     letter-spacing: 0.06em;
 
-    // 左侧发光竖条
     &::before {
       content: '';
       position: absolute;
@@ -929,18 +801,75 @@ $text-muted: #80a8d8;
   padding: 8px 10px;
 }
 
-.panel--trend :deep(.panel-card__body),
-.panel--ranking :deep(.panel-card__body) {
-  display: grid;
-  grid-template-rows: 28px 1fr;
-  gap: 4px;
+.overview {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 14px;
+  height: 100%;
+  margin: 0;
+  padding: 8px 6px 10px;
+  list-style: none;
 }
 
-.panel--industry :deep(.panel-card__body) {
+.overview__item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
   min-height: 0;
+  padding: 2px 0;
 }
 
-.industry-chart {
+.overview__icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(69, 199, 255, 0.35);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(69, 199, 255, 0.28), rgba(8, 32, 82, 0.9));
+  box-shadow: 0 0 12px rgba(40, 197, 255, 0.28);
+  color: #7ae7ff;
+
+  svg {
+    width: 22px;
+    height: 22px;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}
+
+.overview__meta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.overview__label {
+  color: $text-muted;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.overview__value {
+  color: #ffffff;
+  font-family: DIN Alternate, Arial, 'Microsoft YaHei', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 0 12px rgba(69, 178, 255, 0.55);
+}
+
+.split-chart,
+.monitor {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -949,13 +878,15 @@ $text-muted: #80a8d8;
   min-height: 0;
 }
 
-.chart--industry {
-  flex: 0 0 48%;
+.chart--donut,
+.chart--monitor {
+  flex: 0 0 52%;
   min-width: 0;
   height: 100%;
 }
 
-.industry-legend {
+.chart-legend,
+.monitor-stats {
   flex: 1;
   min-width: 0;
   margin: 0;
@@ -964,20 +895,17 @@ $text-muted: #80a8d8;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 14px;
+  gap: 10px;
 }
 
-.industry-legend__item {
+.chart-legend__item {
   display: grid;
   grid-template-columns: 8px minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  column-gap: 6px;
-  row-gap: 2px;
   align-items: center;
+  column-gap: 8px;
 }
 
-.industry-legend__dot {
-  grid-row: 1 / span 2;
+.chart-legend__dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -985,127 +913,55 @@ $text-muted: #80a8d8;
   box-shadow: 0 0 8px color-mix(in srgb, var(--dot-color) 70%, transparent);
 }
 
-.industry-legend__name {
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 11px;
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
-.industry-legend__percent {
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 11px;
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
-.industry-legend__value {
-  grid-column: 2 / span 2;
-  color: rgba(186, 214, 240, 0.78);
-  font-size: 10px;
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
-.tab-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.tab-bar--compact {
-  gap: 4px;
-}
-
-.tab-bar__item {
-  padding: 3px 10px;
-  border: 1px solid rgba(42, 167, 255, 0.2);
-  border-radius: 3px;
-  background: rgba(6, 25, 66, 0.6);
-  color: #779bc8;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &--active {
-    border-color: rgba(40, 197, 255, 0.6);
-    background: rgba(40, 197, 255, 0.15);
-    color: #28c5ff;
-    box-shadow: 0 0 10px rgba(40, 197, 255, 0.25);
-  }
-}
-
-.risk-rank {
-  height: 100%;
-  min-height: 0;
-}
-
-.risk-rank__viewport {
-  position: relative;
-  height: 100%;
-  min-height: 0;
+.chart-legend__name {
   overflow: hidden;
-  cursor: ns-resize;
-  mask-image: linear-gradient(transparent 0%, #000 8%, #000 92%, transparent 100%);
-}
-
-.risk-rank__list {
-  display: grid;
-  gap: 6px;
-}
-
-.risk-rank__item {
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 56px;
-  align-items: center;
-  gap: 10px;
-  box-sizing: border-box;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid rgba(42, 167, 255, 0.1);
-  border-radius: 5px;
-  background: rgba(6, 25, 66, 0.46);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: geometricprecision;
-}
-
-.risk-rank__item--top {
-  border-color: rgba(255, 156, 74, 0.26);
-  background:
-    linear-gradient(90deg, rgba(255, 126, 58, 0.16), rgba(6, 25, 66, 0.46) 58%),
-    rgba(6, 25, 66, 0.58);
-}
-
-.risk-rank__index {
-  color: rgba(128, 168, 216, 0.78);
-  font-family: DIN Alternate, Impact, sans-serif;
-  font-size: 13px;
-  letter-spacing: 0.04em;
-}
-
-.risk-rank__item--top .risk-rank__index {
-  color: #ffcf8a;
-  text-shadow: 0 0 4px rgba(255, 156, 74, 0.28);
-}
-
-.risk-rank__name {
-  min-width: 0;
-  overflow: hidden;
-  color: rgba(232, 246, 255, 0.92);
-  font-size: 13px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.risk-rank__value {
-  color: #fff1d7;
-  font-family: Arial, 'Microsoft YaHei', sans-serif;
+.chart-legend__value {
+  color: rgba(186, 214, 240, 0.92);
   font-variant-numeric: tabular-nums;
-  font-size: 15px;
-  font-weight: 700;
-  text-align: right;
-  letter-spacing: 0;
-  text-shadow: none;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.monitor-stats__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 2px;
+
+  span {
+    color: $text-muted;
+    font-size: 11px;
+  }
+
+  strong {
+    color: #ffffff;
+    font-family: DIN Alternate, Arial, 'Microsoft YaHei', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+    text-shadow: 0 0 10px rgba(69, 178, 255, 0.45);
+
+    i {
+      margin-left: 3px;
+      color: rgba(186, 214, 240, 0.78);
+      font-size: 11px;
+      font-style: normal;
+      font-weight: 400;
+    }
+  }
+}
+
+.monitor-stats__item--alert {
+  strong {
+    color: #ffd23d;
+    text-shadow: 0 0 10px rgba(255, 210, 61, 0.45);
+  }
 }
 
 .chart {
@@ -1128,7 +984,6 @@ $text-muted: #80a8d8;
   .viz-header__title {
     font-size: clamp(22px, 2vw, 32px);
   }
-
 }
 </style>
 
