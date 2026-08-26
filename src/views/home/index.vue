@@ -99,7 +99,8 @@
                   project.thumbType === 'corporate' ||
                   project.thumbType === 'doc' ||
                   project.thumbType === 'chat' ||
-                  project.thumbType === 'mindmap',
+                  project.thumbType === 'mindmap' ||
+                  project.thumbType === 'globe',
               }"
               :style="project.thumbGradient ? { background: project.thumbGradient } : undefined"
             >
@@ -145,6 +146,12 @@
                 :src="chainCoverImg"
                 alt=""
               />
+              <img
+                v-if="project.thumbType === 'globe'"
+                class="project-card__equity-cover"
+                :src="earthCoverImg"
+                alt=""
+              />
             </div>
             <h3 class="project-card__title">{{ project.title }}</h3>
             <p class="project-card__desc">{{ project.description }}</p>
@@ -175,6 +182,7 @@ import corporateCoverImg from '../../assets/img/official_website_cover.webp'
 import docCoverImg from '../../assets/img/doc_cover.png'
 import chatCoverImg from '../../assets/img/chatgpt.png'
 import chainCoverImg from '../../assets/img/chain_cover.png'
+import earthCoverImg from '../../assets/img/earth.png'
 
 const deskBackground = `url(${deskImg})`
 
@@ -231,6 +239,7 @@ const navItems = [
   { label: '首页', href: '/', active: true },
   { label: '项目', href: '#projects', active: false },
   { label: '数据大屏', href: '/visualization', active: false },
+  { label: '3D 地球', href: '/globe', active: false },
   { label: '实验室', href: '#', active: false },
   { label: '设计与灵感', href: '#', active: false },
 ]
@@ -277,6 +286,13 @@ const projects = [
     tags: ['Vue3', 'ECharts', 'Three.js'],
     thumbType: 'viz' as const,
     href: '/visualization',
+  },
+  {
+    title: '3D 地球',
+    description: '夜景地球与中国区域高亮，可旋转缩放的三维地理视图',
+    tags: ['Vue3', 'Three.js', 'WebGL'],
+    thumbType: 'globe' as const,
+    href: '/globe',
   },
   {
     title: '企业官网设计',

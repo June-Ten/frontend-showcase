@@ -49,7 +49,9 @@ onBeforeUnmount(() => {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 48%, #101012 0%, #050505 45%, #000 74%);
+  background:
+    radial-gradient(ellipse at 72% 46%, rgba(70, 160, 255, 0.16), transparent 28%),
+    radial-gradient(ellipse at 50% 42%, #0a1c3c 0%, #040814 48%, #010309 78%);
 }
 
 .globe-stage__canvas {
