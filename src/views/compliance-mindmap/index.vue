@@ -73,6 +73,7 @@ import { createComplianceMindmapGraph } from './createComplianceMindmapGraph'
 import { unmountAllComplianceNodes } from './mountComplianceNode'
 import { onMindmapNodeDetail, type MindmapNodeDetailAction } from './nodeEvents'
 import {
+  cancelComplianceGraphPlayback,
   fitComplianceMindmapView,
   playComplianceGraphGeneration,
   resetComplianceGraphPlayback,
@@ -82,6 +83,7 @@ const chartRef = ref<HTMLElement | null>(null)
 const isPlaying = ref(false)
 const detail = ref<MindmapNodeDetailAction | null>(null)
 let graph: Graph | null = null
+let disposed = false
 let resizeObserver: ResizeObserver | null = null
 let stopDetailListener: (() => void) | null = null
 
@@ -116,8 +118,13 @@ function closeDetail() {
 }
 
 async function initChart() {
-  if (!chartRef.value) return
-  graph = await createComplianceMindmapGraph(chartRef.value)
+  if (!chartRef.value || disposed) return
+  const nextGraph = await createComplianceMindmapGraph(chartRef.value)
+  if (disposed) {
+    nextGraph.destroy()
+    return
+  }
+  graph = nextGraph
 }
 
 async function handlePlay() {
@@ -149,18 +156,19 @@ onMounted(async () => {
   stopDetailListener = onMindmapNodeDetail(openDetail)
   await nextTick()
   await initChart()
-  if (chartRef.value) {
-    resizeObserver = new ResizeObserver(handleResize)
-    resizeObserver.observe(chartRef.value)
-  }
+  if (disposed || !chartRef.value) return
+  resizeObserver = new ResizeObserver(handleResize)
+  resizeObserver.observe(chartRef.value)
 })
 
 onBeforeUnmount(() => {
+  disposed = true
+  cancelComplianceGraphPlayback()
   stopDetailListener?.()
   resizeObserver?.disconnect()
-  unmountAllComplianceNodes()
   graph?.destroy()
   graph = null
+  unmountAllComplianceNodes()
 })
 </script>
 
