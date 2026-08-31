@@ -34,6 +34,11 @@ export type NationMap3dController = {
   render: () => void
 }
 
+function createNoopController(): NationMap3dController {
+  const noop = () => {}
+  return { initData: noop, resize: noop, dispose: noop, render: noop }
+}
+
 const PROJECTION_CENTER: [number, number] = [106.76581, 30.640725]
 const PROJECTION_SCALE = 250
 const DOWN_BIAS = 30
@@ -96,13 +101,19 @@ export async function createNationMap3d(
   const geojson = chinaMap as FeatureCollection
   const provinces = location.province as ProvinceMeta[]
 
-  const [hlmTexture, hlSideTexture, bar2Texture, bar3Texture, chinaWxTexture] = await Promise.all([
+  const textures = await Promise.all([
     loadTexture(hlmUrl),
     loadTexture(hlSideUrl),
     loadTexture(bar2Url),
     loadTexture(bar3Url),
     loadTexture(chinaWxUrl),
   ])
+  const [hlmTexture, hlSideTexture, bar2Texture, bar3Texture, chinaWxTexture] = textures
+
+  if (!container.isConnected) {
+    textures.forEach((texture) => texture.dispose())
+    return createNoopController()
+  }
 
   hlSideTexture.wrapS = THREE.RepeatWrapping
   hlSideTexture.wrapT = THREE.RepeatWrapping
@@ -126,15 +137,17 @@ export async function createNationMap3d(
   })
 
   const scene = new THREE.Scene()
-  const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000)
+  const viewWidth = Math.max(container.clientWidth, 1)
+  const viewHeight = Math.max(container.clientHeight, 1)
+  const camera = new THREE.PerspectiveCamera(45, viewWidth / viewHeight, 0.1, 1000)
   camera.position.set(40, 360, 200)
   camera.lookAt(new THREE.Vector3(0, 0, 0))
   scene.add(camera)
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, logarithmicDepthBuffer: true })
   renderer.shadowMap.enabled = true
-  renderer.setSize(container.clientWidth, container.clientHeight)
-  renderer.setPixelRatio(window.devicePixelRatio)
+  renderer.setSize(viewWidth, viewHeight)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
   renderer.setClearColor(0xffffff, 0)
   renderer.toneMapping = THREE.NoToneMapping
   renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -392,6 +405,7 @@ export async function createNationMap3d(
     loader.load(
       `${import.meta.env.BASE_URL}fonts/${encodeURIComponent('Alimama ShuHeiTi_Bold.json')}`,
       (font) => {
+        if (disposed) return
         cachedFont = font
         createTextMesh(font, provinceName, xyz)
       },
@@ -399,6 +413,7 @@ export async function createNationMap3d(
   }
 
   const heightChange = (name: string) => {
+    if (disposed) return
     const provinceName = name.includes('-') ? name.split('-')[1] : name
     if (!provinceName || nowProvince === provinceName) return
     if (heightName) restoreNormalBar(heightName.split('-')[1] ?? '')
@@ -454,6 +469,7 @@ export async function createNationMap3d(
   }
 
   const onMouseMove = (event: MouseEvent) => {
+    if (disposed) return
     const rect = container.getBoundingClientRect()
     const mouse = new THREE.Vector2(
       ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -472,12 +488,13 @@ export async function createNationMap3d(
   }
 
   const onMouseLeave = () => {
-    if (!carouselPaused) return
+    if (disposed || !carouselPaused) return
     startCarousel()
     carouselPaused = false
   }
 
   const resize = () => {
+    if (disposed) return
     if (!container.clientWidth || !container.clientHeight) return
     camera.aspect = container.clientWidth / container.clientHeight
     camera.updateProjectionMatrix()
@@ -496,6 +513,7 @@ export async function createNationMap3d(
   }
 
   const initData = (data: ScreenData) => {
+    if (disposed) return
     provinceDataMap.clear()
     Object.keys(dataList).forEach((key) => {
       delete dataList[key]
@@ -514,6 +532,7 @@ export async function createNationMap3d(
   }
 
   const dispose = () => {
+    if (disposed) return
     disposed = true
     stopCarousel()
     window.cancelAnimationFrame(animationFrame)

@@ -11,8 +11,10 @@ const containerRef = ref<HTMLElement | null>(null)
 let mapController: NationMap3dController | null = null
 let pendingData: ScreenData | null = null
 let resizeObserver: ResizeObserver | null = null
+let cancelled = false
 
 const initData = (data: ScreenData) => {
+  if (cancelled) return
   if (mapController) {
     mapController.initData(data)
     return
@@ -23,7 +25,20 @@ const initData = (data: ScreenData) => {
 onMounted(async () => {
   const container = containerRef.value
   if (!container) return
-  mapController = await createNationMap3d(container, (name) => emit('changeProvince', name))
+  let controller: NationMap3dController
+  try {
+    controller = await createNationMap3d(container, (name) => {
+      if (!cancelled) emit('changeProvince', name)
+    })
+  } catch (error) {
+    if (cancelled) return
+    throw error
+  }
+  if (cancelled) {
+    controller.dispose()
+    return
+  }
+  mapController = controller
   if (pendingData) {
     mapController.initData(pendingData)
     pendingData = null
@@ -34,7 +49,10 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  cancelled = true
+  pendingData = null
   resizeObserver?.disconnect()
+  resizeObserver = null
   mapController?.dispose()
   mapController = null
 })
