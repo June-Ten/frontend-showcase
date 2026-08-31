@@ -110,15 +110,16 @@ defineExpose({ initMapData })
   position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 .map-base {
   position: absolute;
   left: 50%;
-  bottom: -6%;
+  bottom: 10%;
   z-index: 0;
   width: 140%;
-  max-height: 78%;
+  max-height: 70%;
   transform: translateX(-50%);
   pointer-events: none;
   object-fit: contain;

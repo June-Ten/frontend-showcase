@@ -7,7 +7,7 @@ import btnDefault from '../../../assets/img/chinaScreen/btn_default.png'
 import titleBg from '../../../assets/img/chinaScreen/title_bg.png'
 import type { AiFileCount } from '../type'
 import { getFontSize } from '../utils'
-import SeamlessScroll from './SeamlessScroll.vue'
+import RankScroll from './RankScroll.vue'
 
 const props = defineProps<{
   aiFileCountList: AiFileCount[]
@@ -229,13 +229,13 @@ defineExpose({ refreshTable })
               <div class="table-cell">转文件库数</div>
             </div>
           </div>
-          <SeamlessScroll v-if="tableData.length > 0" class="table-body">
+          <RankScroll v-if="tableData.length > 0" class="table-body">
             <div v-for="(item, index) in tableData" :key="`${item.provinceCode}-${index}`" class="table-row">
               <div class="table-cell">{{ item.provinceName }}</div>
               <div class="table-cell">{{ item.aiReview }}</div>
               <div class="table-cell">{{ item.toLib }}</div>
             </div>
-          </SeamlessScroll>
+          </RankScroll>
         </div>
       </div>
     </div>
@@ -338,8 +338,9 @@ defineExpose({ refreshTable })
 }
 
 .table-body .table-row {
-  height: 36px;
-  margin-top: 4px;
+  height: 38px;
+  margin-top: 6px;
+  box-sizing: border-box;
 
   &:hover {
     background: linear-gradient(90deg, rgba(1, 12, 104, 0) 0%, #009dff 50%, rgba(1, 12, 104, 0) 100%);
@@ -357,7 +358,6 @@ defineExpose({ refreshTable })
 .table-body {
   width: 100%;
   height: calc(100% - 44px);
-  overflow: hidden;
 
   .table-cell {
     font-size: 14px;
