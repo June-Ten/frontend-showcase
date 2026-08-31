@@ -100,7 +100,8 @@
                   project.thumbType === 'doc' ||
                   project.thumbType === 'chat' ||
                   project.thumbType === 'mindmap' ||
-                  project.thumbType === 'globe',
+                  project.thumbType === 'globe' ||
+                  project.thumbType === 'nations',
               }"
               :style="project.thumbGradient ? { background: project.thumbGradient } : undefined"
             >
@@ -152,6 +153,12 @@
                 :src="earthCoverImg"
                 alt=""
               />
+              <img
+                v-if="project.thumbType === 'nations'"
+                class="project-card__equity-cover"
+                :src="nationsCoverImg"
+                alt=""
+              />
             </div>
             <h3 class="project-card__title">{{ project.title }}</h3>
             <p class="project-card__desc">{{ project.description }}</p>
@@ -183,6 +190,7 @@ import docCoverImg from '../../assets/img/doc_cover.png'
 import chatCoverImg from '../../assets/img/chatgpt.png'
 import chainCoverImg from '../../assets/img/chain_cover.png'
 import earthCoverImg from '../../assets/img/earth.png'
+import nationsCoverImg from '../../assets/img/chinaScreen/bigscreen_cover.png'
 
 const deskBackground = `url(${deskImg})`
 
@@ -239,6 +247,7 @@ const navItems = [
   { label: '首页', href: '/', active: true },
   { label: '项目', href: '#projects', active: false },
   { label: '数据大屏', href: '/visualization', active: false },
+  { label: '审查中心', href: '/bigscreen', active: false },
   { label: '3D 地球', href: '/globe', active: false },
   { label: '实验室', href: '#', active: false },
   { label: '设计与灵感', href: '#', active: false },
@@ -279,6 +288,13 @@ const projects = [
     tags: ['Vue3', 'G6', 'TypeScript'],
     thumbType: 'mindmap' as const,
     href: '/compliance-mindmap',
+  },
+  {
+    title: '公平竞争审查数据中心',
+    description: '全国公平竞争审查统一平台数据中心，AI 审查态势与风险分布',
+    tags: ['Vue3', 'ECharts', 'Three.js'],
+    thumbType: 'nations' as const,
+    href: '/bigscreen',
   },
   {
     title: '全国综合态势感知大屏',

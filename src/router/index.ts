@@ -12,6 +12,11 @@ const routes = [
     component: () => import('../views/visualization/index.vue')
   },
   {
+    path: '/bigscreen',
+    name: 'Bigscreen',
+    component: () => import('../views/bigscreen/index.vue')
+  },
+  {
     path: '/globe',
     name: 'Globe',
     component: () => import('../views/globe/index.vue')
