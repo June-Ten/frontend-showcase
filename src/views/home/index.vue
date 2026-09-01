@@ -190,7 +190,7 @@ import docCoverImg from '../../assets/img/doc_cover.png'
 import chatCoverImg from '../../assets/img/chatgpt.png'
 import chainCoverImg from '../../assets/img/chain_cover.png'
 import earthCoverImg from '../../assets/img/earth.png'
-import nationsCoverImg from '../../assets/img/chinaScreen/bigscreen_cover.png'
+import nationsCoverImg from '../../assets/img/big_screen_cover.png'
 
 const deskBackground = `url(${deskImg})`
 
