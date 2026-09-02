@@ -47,32 +47,45 @@ import { createCompactBoxEquityGraph } from './createCompactBoxEquityGraph'
 const chartRef = ref<HTMLElement | null>(null)
 let graph: Graph | null = null
 let resizeObserver: ResizeObserver | null = null
+let cancelled = false
 
 async function initChart() {
-  if (!chartRef.value) return
-  graph = await createCompactBoxEquityGraph(chartRef.value)
+  if (!chartRef.value || cancelled) return
+  try {
+    const nextGraph = await createCompactBoxEquityGraph(chartRef.value)
+    if (cancelled) {
+      nextGraph.destroy()
+      return
+    }
+    graph = nextGraph
+  } catch (error) {
+    if (cancelled) return
+    throw error
+  }
 }
 
 function handleFitView() {
-  graph?.fitView()
+  if (cancelled || !graph) return
+  graph.fitView()
 }
 
 function handleResize() {
-  if (!graph || !chartRef.value) return
+  if (cancelled || !graph || !chartRef.value) return
   graph.resize(chartRef.value.clientWidth, chartRef.value.clientHeight)
 }
 
 onMounted(async () => {
   await nextTick()
   await initChart()
-  if (chartRef.value) {
-    resizeObserver = new ResizeObserver(handleResize)
-    resizeObserver.observe(chartRef.value)
-  }
+  if (cancelled || !chartRef.value) return
+  resizeObserver = new ResizeObserver(handleResize)
+  resizeObserver.observe(chartRef.value)
 })
 
 onBeforeUnmount(() => {
+  cancelled = true
   resizeObserver?.disconnect()
+  resizeObserver = null
   graph?.destroy()
   graph = null
 })
