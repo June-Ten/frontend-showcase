@@ -273,7 +273,12 @@ function clearActiveHoverStates(graph: G6Graph) {
   }
 }
 
-async function runWithVisibilityAnimation(graph: G6Graph, task: () => Promise<void>) {
+async function runWithVisibilityAnimation(
+  graph: G6Graph,
+  task: () => Promise<void>,
+  isAlive: () => boolean = () => true,
+) {
+  if (!isAlive()) return
   clearActiveHoverStates(graph)
   stopAllCompactBoxTreePolylineEdges(graph)
   setCompactBoxVisibilityAnimating(true)
@@ -281,7 +286,9 @@ async function runWithVisibilityAnimation(graph: G6Graph, task: () => Promise<vo
     await task()
   } finally {
     setCompactBoxVisibilityAnimating(false)
-    syncAllCompactBoxTreePolylineEdges(graph)
+    if (isAlive()) {
+      syncAllCompactBoxTreePolylineEdges(graph)
+    }
   }
 }
 
@@ -290,11 +297,15 @@ export async function createCompactBoxEquityGraph(
   tree: InvestTreeData = investTreeInitialData,
 ): Promise<G6Graph> {
   let graph!: G6Graph
+  let disposed = false
   /** 全局仅允许一个懒加载任务进行 */
   let lazyLoadingNodeId: string | null = null
   let badgeVersion = 0
 
+  const isAlive = () => !disposed
+
   async function refreshBadges(nodeIds?: string[]) {
+    if (!isAlive()) return
     badgeVersion += 1
     const ids = nodeIds ?? graph.getNodeData().map((node) => String(node.id))
     graph.updateNodeData(ids.map((id) => ({ id, style: { badgeVersion } })))
@@ -302,7 +313,7 @@ export async function createCompactBoxEquityGraph(
   }
 
   async function handleBadgeClick(nodeId: string) {
-    if (lazyLoadingNodeId !== null) return
+    if (!isAlive() || lazyLoadingNodeId !== null) return
 
     const nodeData = graph.getNodeData(nodeId)
     if (!canShowExpandBadge(nodeData)) return
@@ -310,10 +321,14 @@ export async function createCompactBoxEquityGraph(
     const collapsed = !!nodeData.style?.collapsed
 
     if (!collapsed) {
-      await runWithVisibilityAnimation(graph, async () => {
-        await graph.collapseElement(nodeId, EXPAND_COLLAPSE_OPTIONS)
-        await refreshBadges([nodeId])
-      })
+      await runWithVisibilityAnimation(
+        graph,
+        async () => {
+          await graph.collapseElement(nodeId, EXPAND_COLLAPSE_OPTIONS)
+          await refreshBadges([nodeId])
+        },
+        isAlive,
+      )
       return
     }
 
@@ -323,9 +338,11 @@ export async function createCompactBoxEquityGraph(
     if (!loaded && lazy) {
       lazyLoadingNodeId = nodeId
       await refreshBadges([nodeId])
+      if (!isAlive()) return
 
       try {
         const children = await fetchInvestChildren(nodeId)
+        if (!isAlive()) return
 
         lazyLoadingNodeId = null
 
@@ -336,23 +353,33 @@ export async function createCompactBoxEquityGraph(
         }
 
         const childIds = children.map((child) => child.id)
-        await runWithVisibilityAnimation(graph, async () => {
-          graph.addChildrenData(nodeId, children.map(toLazyChildNodeData))
-          patchTreeEdgePorts(graph, nodeId, childIds)
-          await graph.expandElement(nodeId, EXPAND_COLLAPSE_OPTIONS)
-        })
+        await runWithVisibilityAnimation(
+          graph,
+          async () => {
+            if (!isAlive()) return
+            graph.addChildrenData(nodeId, children.map(toLazyChildNodeData))
+            patchTreeEdgePorts(graph, nodeId, childIds)
+            await graph.expandElement(nodeId, EXPAND_COLLAPSE_OPTIONS)
+          },
+          isAlive,
+        )
         await refreshBadges([nodeId])
       } catch {
         lazyLoadingNodeId = null
+        if (!isAlive()) return
         await refreshBadges([nodeId])
       }
       return
     }
 
-    await runWithVisibilityAnimation(graph, async () => {
-      await graph.expandElement(nodeId, EXPAND_COLLAPSE_OPTIONS)
-      await refreshBadges([nodeId])
-    })
+    await runWithVisibilityAnimation(
+      graph,
+      async () => {
+        await graph.expandElement(nodeId, EXPAND_COLLAPSE_OPTIONS)
+        await refreshBadges([nodeId])
+      },
+      isAlive,
+    )
   }
 
   graph = new Graph({
@@ -475,26 +502,51 @@ export async function createCompactBoxEquityGraph(
         type: 'hover-activate',
         degree: 1,
         enable: (event: IPointerEvent) =>
-          !isPointerOnNodeBadge(event) && lazyLoadingNodeId === null && !isCompactBoxVisibilityAnimating(),
+          isAlive()
+          && !isPointerOnNodeBadge(event)
+          && lazyLoadingNodeId === null
+          && !isCompactBoxVisibilityAnimating(),
         onHover: () => {
-          if (isCompactBoxVisibilityAnimating()) return
-          requestAnimationFrame(() => syncAllCompactBoxTreePolylineEdges(graph))
+          if (!isAlive() || isCompactBoxVisibilityAnimating()) return
+          requestAnimationFrame(() => {
+            if (isAlive()) syncAllCompactBoxTreePolylineEdges(graph)
+          })
         },
         onHoverEnd: () => {
-          if (isCompactBoxVisibilityAnimating()) return
+          if (!isAlive() || isCompactBoxVisibilityAnimating()) return
           stopAllCompactBoxTreePolylineEdges(graph)
-          requestAnimationFrame(() => syncAllCompactBoxTreePolylineEdges(graph))
+          requestAnimationFrame(() => {
+            if (isAlive()) syncAllCompactBoxTreePolylineEdges(graph)
+          })
         },
       },
     ],
   })
 
   graph.on('node:pointerup', (event: IPointerEvent) => {
+    if (!isAlive()) return
     if (!isPointerOnNodeBadge(event)) return
     if (!('id' in event.target)) return
     void handleBadgeClick(String(event.target.id))
   })
 
-  await graph.render()
+  const originalDestroy = graph.destroy.bind(graph)
+  graph.destroy = (() => {
+    if (disposed) return
+    disposed = true
+    lazyLoadingNodeId = null
+    setCompactBoxVisibilityAnimating(false)
+    originalDestroy()
+  }) as G6Graph['destroy']
+
+  try {
+    await graph.render()
+  } catch (error) {
+    if (!disposed) {
+      graph.destroy()
+    }
+    throw error
+  }
+
   return graph
 }
