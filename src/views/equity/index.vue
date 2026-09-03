@@ -64,6 +64,7 @@ import type { Graph } from '@antv/g6'
 const chartRef = ref<HTMLElement | null>(null)
 let graph: Graph | null = null
 let resizeObserver: ResizeObserver | null = null
+let cancelled = false
 
 const metaItems = computed(() => [
   { label: '统一社会信用代码', value: companyInfo.creditCode },
@@ -78,41 +79,42 @@ const legendItems = [
 ]
 
 function initChart() {
-  if (!chartRef.value) return
+  if (!chartRef.value || cancelled) return
   graph = createEquityGraph(chartRef.value, equityGraphData)
 }
 
 async function handleReset() {
-  if (!graph) return
+  if (cancelled || !graph) return
   await resetEquityGraph(graph, equityGraphData)
 }
 
 async function handleExpandAll() {
-  if (!graph) return
+  if (cancelled || !graph) return
   await expandAllEquityNodes(graph)
 }
 
 async function handleCollapseAll() {
-  if (!graph) return
+  if (cancelled || !graph) return
   await collapseAllEquityNodes(graph)
 }
 
 function handleResize() {
-  if (!graph || !chartRef.value) return
+  if (cancelled || !graph || !chartRef.value) return
   graph.resize(chartRef.value.clientWidth, chartRef.value.clientHeight)
 }
 
 onMounted(async () => {
   await nextTick()
+  if (cancelled) return
   initChart()
-  if (chartRef.value) {
-    resizeObserver = new ResizeObserver(() => handleResize())
-    resizeObserver.observe(chartRef.value)
-  }
+  if (cancelled || !chartRef.value) return
+  resizeObserver = new ResizeObserver(() => handleResize())
+  resizeObserver.observe(chartRef.value)
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
+  cancelled = true
   resizeObserver?.disconnect()
   resizeObserver = null
   window.removeEventListener('resize', handleResize)
