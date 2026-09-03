@@ -226,10 +226,18 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
   const collapsedDownstream = new Set<string>()
   let previousHidden = new Set<string>()
   let collapseBadgeVersion = 0
+  let disposed = false
   const nodePositions = new Map<string, { x: number; y: number }>()
   const nodeIdSet = new Set(data.nodes.map((node) => node.id))
 
   let graph!: G6Graph
+  const isAlive = () => !disposed
+
+  function syncHoverEdgesSoon() {
+    requestAnimationFrame(() => {
+      if (isAlive()) syncAllHoverAntPolylineEdges(graph)
+    })
+  }
 
   function getNodePosition(id: string) {
     const style = graph.getNodeData(id).style as { x?: number; y?: number } | undefined
@@ -289,6 +297,7 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
   }
 
   async function refreshCollapseBadges(nodeIds: string[]) {
+    if (!isAlive()) return
     const visibleIds = nodeIds.filter(
       (id) => hasCollapsibleBranch(id, topo) && !previousHidden.has(id),
     )
@@ -301,10 +310,12 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
         style: { collapseBadgeVersion },
       })),
     )
+    if (!isAlive()) return
     await graph.draw()
   }
 
   async function applyVisibility(badgeNodeIds?: Iterable<string>) {
+    if (!isAlive()) return
     const hidden = computeEquityHiddenNodes(topo, collapsedUpstream, collapsedDownstream)
     const visibilityChanges = buildVisibilityChanges(hidden)
 
@@ -317,14 +328,18 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
       }
       setEquityVisibilityAnimating(true)
       try {
+        if (!isAlive()) return
         await graph.setElementVisibility(visibilityChanges, true)
       } finally {
         setEquityVisibilityAnimating(false)
-        stopAllHoverAntPolylineEdges(graph)
-        requestAnimationFrame(() => syncAllHoverAntPolylineEdges(graph))
+        if (isAlive()) {
+          stopAllHoverAntPolylineEdges(graph)
+          syncHoverEdgesSoon()
+        }
       }
     }
 
+    if (!isAlive()) return
     const badgeIds = badgeNodeIds
       ? [...badgeNodeIds]
       : data.nodes
@@ -334,18 +349,21 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
   }
 
   async function toggleUpstream(nodeId: string) {
+    if (!isAlive()) return
     if (collapsedUpstream.has(nodeId)) collapsedUpstream.delete(nodeId)
     else collapsedUpstream.add(nodeId)
     await applyVisibility([nodeId])
   }
 
   async function toggleDownstream(nodeId: string) {
+    if (!isAlive()) return
     if (collapsedDownstream.has(nodeId)) collapsedDownstream.delete(nodeId)
     else collapsedDownstream.add(nodeId)
     await applyVisibility([nodeId])
   }
 
   function handleBadgeClick(event: IPointerEvent) {
+    if (!isAlive()) return
     if (!isPointerOnNodeBadge(event)) return
     if (!('id' in event.target)) return
 
@@ -449,13 +467,13 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
         type: 'hover-activate',
         degree: 1,
         onHover: () => {
-          if (isEquityVisibilityAnimating()) return
-          requestAnimationFrame(() => syncAllHoverAntPolylineEdges(graph))
+          if (!isAlive() || isEquityVisibilityAnimating()) return
+          syncHoverEdgesSoon()
         },
         onHoverEnd: () => {
-          if (isEquityVisibilityAnimating()) return
+          if (!isAlive() || isEquityVisibilityAnimating()) return
           stopAllHoverAntPolylineEdges(graph)
-          requestAnimationFrame(() => syncAllHoverAntPolylineEdges(graph))
+          syncHoverEdgesSoon()
         },
       },
     ],
@@ -465,17 +483,21 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
 
   const controller: EquityGraphController = {
     async reset() {
+      if (!isAlive()) return
       collapsedUpstream.clear()
       collapsedDownstream.clear()
       await applyVisibility()
+      if (!isAlive()) return
       await graph.fitView()
     },
     async expandAll() {
+      if (!isAlive()) return
       collapsedUpstream.clear()
       collapsedDownstream.clear()
       await applyVisibility()
     },
     async collapseAll() {
+      if (!isAlive()) return
       collapsedUpstream.clear()
       collapsedDownstream.clear()
       for (const node of data.nodes) {
@@ -488,24 +510,33 @@ export function createEquityGraph(container: HTMLElement, data: EquityGraphData)
 
   controllers.set(graph, controller)
 
-  void graph.render()
+  const originalDestroy = graph.destroy.bind(graph)
+  graph.destroy = (() => {
+    if (disposed) return
+    disposed = true
+    setEquityVisibilityAnimating(false)
+    controllers.delete(graph)
+    originalDestroy()
+  }) as G6Graph['destroy']
+
+  void graph.render().catch((error) => {
+    if (!disposed) throw error
+  })
   return graph
 }
 
 function getController(graph: G6Graph) {
-  const controller = controllers.get(graph)
-  if (!controller) throw new Error('Equity graph controller not found')
-  return controller
+  return controllers.get(graph) ?? null
 }
 
 export async function resetEquityGraph(graph: G6Graph, _data: EquityGraphData) {
-  await getController(graph).reset()
+  await getController(graph)?.reset()
 }
 
 export async function expandAllEquityNodes(graph: G6Graph) {
-  await getController(graph).expandAll()
+  await getController(graph)?.expandAll()
 }
 
 export async function collapseAllEquityNodes(graph: G6Graph) {
-  await getController(graph).collapseAll()
+  await getController(graph)?.collapseAll()
 }
