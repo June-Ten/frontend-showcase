@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onUnmounted } from 'vue'
+
 const x = defineModel<number>('x', { required: true })
 const y = defineModel<number>('y', { required: true })
 
@@ -21,34 +23,72 @@ let startY = 0
 let originX = 0
 let originY = 0
 let dragging = false
+let activePointerId: number | null = null
+let capturedEl: HTMLElement | null = null
+
+function detachPointerListeners() {
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', endDrag)
+  window.removeEventListener('pointercancel', endDrag)
+}
+
+function stopDragging() {
+  if (!dragging) return
+  dragging = false
+  if (capturedEl && activePointerId != null && capturedEl.hasPointerCapture(activePointerId)) {
+    try {
+      capturedEl.releasePointerCapture(activePointerId)
+    } catch {
+      // Capture can already be released by pointercancel.
+    }
+  }
+  capturedEl = null
+  activePointerId = null
+  detachPointerListeners()
+}
 
 function onPointerDown(event: PointerEvent) {
+  if (event.button > 0) return
   event.preventDefault()
   event.stopPropagation()
   emit('select')
+  if (dragging) stopDragging()
   dragging = true
+  activePointerId = event.pointerId
   startX = event.clientX
   startY = event.clientY
   originX = x.value
   originY = y.value
+  capturedEl = event.currentTarget as HTMLElement
+  try {
+    capturedEl.setPointerCapture(event.pointerId)
+  } catch {
+    capturedEl = null
+  }
   window.addEventListener('pointermove', onPointerMove)
-  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointerup', endDrag)
+  window.addEventListener('pointercancel', endDrag)
 }
 
 function onPointerMove(event: PointerEvent) {
   if (!dragging) return
+  if (activePointerId != null && event.pointerId !== activePointerId) return
   if (!props.lockX) {
     x.value = originX + event.clientX - startX
   }
   y.value = originY + event.clientY - startY
 }
 
-function onPointerUp() {
-  dragging = false
-  window.removeEventListener('pointermove', onPointerMove)
-  window.removeEventListener('pointerup', onPointerUp)
+function endDrag(event: PointerEvent) {
+  if (activePointerId != null && event.pointerId !== activePointerId) return
+  if (!dragging) return
+  stopDragging()
   emit('drag-end')
 }
+
+onUnmounted(() => {
+  stopDragging()
+})
 
 function onRemoveClick(event: MouseEvent) {
   event.stopPropagation()

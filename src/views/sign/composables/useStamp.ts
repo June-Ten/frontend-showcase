@@ -193,7 +193,7 @@ export function useStamp() {
 
     const minX = metrics.viewerPaddingLeft
     const minY = metrics.viewerPaddingTop
-    const maxX = container.clientWidth - metrics.viewerPaddingLeft - seal.width
+    const maxX = container.scrollWidth - metrics.viewerPaddingLeft - seal.width
     const maxY = container.scrollHeight - seal.height
 
     seal.x = Math.min(Math.max(seal.x, minX), Math.max(minX, maxX))
