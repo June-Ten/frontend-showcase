@@ -6,7 +6,7 @@ import { usePdfViewer } from './composables/usePdfViewer'
 import { isSealWithinSinglePage, SEAL_OPTIONS, useStamp } from './composables/useStamp'
 import type { SealOption } from './types'
 
-const PDF_URL = '/git.pdf'
+const PDF_URL = `${import.meta.env.BASE_URL}git.pdf`
 const MOBILE_MAX_WIDTH = 768
 const mobileMediaQuery = window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH}px)`)
 

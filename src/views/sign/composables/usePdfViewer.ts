@@ -4,11 +4,11 @@ import { nextTick, onMounted, onUnmounted, ref, type Ref } from 'vue'
 import type { PageMetrics } from '../types'
 
 const PDFH5_ASSETS = {
-  workerSrc: '/pdf.worker.min.js',
-  cMapUrl: '/cmaps/',
-  standardFontDataUrl: '/standard_fonts/',
-  iccUrl: '/iccs/',
-  wasmUrl: '/wasm/',
+  workerSrc: `${import.meta.env.BASE_URL}pdf.worker.min.js`,
+  cMapUrl: `${import.meta.env.BASE_URL}cmaps/`,
+  standardFontDataUrl: `${import.meta.env.BASE_URL}standard_fonts/`,
+  iccUrl: `${import.meta.env.BASE_URL}iccs/`,
+  wasmUrl: `${import.meta.env.BASE_URL}wasm/`,
 }
 
 export function usePdfViewer(containerRef: Ref<HTMLElement | undefined>, pdfUrl: string) {
