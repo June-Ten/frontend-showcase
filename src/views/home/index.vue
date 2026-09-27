@@ -1,21 +1,22 @@
 <template>
   <div class="devworks">
     <header class="nav">
-      <a href="/" class="nav__logo">
+      <RouterLink to="/" class="nav__logo">
         <span class="nav__logo-dot" aria-hidden="true" />
         DevWorks
-      </a>
+      </RouterLink>
       <nav class="nav__links" aria-label="主导航">
-        <a
+        <component
+          :is="item.to ? 'RouterLink' : 'a'"
           v-for="item in navItems"
           :key="item.label"
-          :href="item.href"
+          v-bind="item.to ? { to: item.to } : { href: item.href }"
           class="nav__link"
           :class="{ 'nav__link--active': item.active }"
         >
           {{ item.label }}
           <span v-if="item.active" class="nav__link-dot" aria-hidden="true" />
-        </a>
+        </component>
       </nav>
       <div class="nav__actions">
         <button type="button" class="nav__icon-btn" aria-label="切换主题">
@@ -243,12 +244,12 @@ onBeforeUnmount(() => {
   typedSubtitle?.destroy()
 })
 
-const navItems = [
-  { label: '首页', href: '/', active: true },
+const navItems: Array<{ label: string; active: boolean; to?: string; href?: string }> = [
+  { label: '首页', to: '/', active: true },
   { label: '项目', href: '#projects', active: false },
-  { label: '数据大屏', href: '/visualization', active: false },
-  { label: '审查中心', href: '/bigscreen', active: false },
-  { label: '3D 地球', href: '/globe', active: false },
+  { label: '数据大屏', to: '/visualization', active: false },
+  { label: '审查中心', to: '/bigscreen', active: false },
+  { label: '3D 地球', to: '/globe', active: false },
   { label: '实验室', href: '#', active: false },
   { label: '设计与灵感', href: '#', active: false },
 ]
