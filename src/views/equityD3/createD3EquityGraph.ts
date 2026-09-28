@@ -308,6 +308,22 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
   const bounds = getBounds(fullLayout.nodes)
   let isAnimating = false
   let lastToggle: ToggleContext | null = null
+  let animateTimer: ReturnType<typeof window.setTimeout> | null = null
+
+  function interruptGraphTransitions() {
+    // Exit selections schedule `.remove()` on transition end. A second
+    // expand/collapse before TRANSITION_MS would rebind those nodes, then
+    // the first transition would still delete them from the DOM.
+    nodeLayer.selectAll('*').interrupt()
+    edgeLayer.selectAll('*').interrupt()
+    svg.interrupt()
+  }
+
+  function clearAnimateTimer() {
+    if (animateTimer == null) return
+    window.clearTimeout(animateTimer)
+    animateTimer = null
+  }
 
   function stopAntAnimation(edgeId: string) {
     const frameId = antAnimations.get(edgeId)
@@ -702,6 +718,9 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
   }
 
   function refreshGraph(animate: boolean) {
+    interruptGraphTransitions()
+    clearAnimateTimer()
+
     const prevPositions = snapshotNodePositions(
       nodeLayer.selectAll<SVGGElement, LayoutNode>('g.equity-d3-node'),
     )
@@ -720,9 +739,12 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
     updateBadges()
 
     if (animate) {
-      window.setTimeout(() => {
+      animateTimer = window.setTimeout(() => {
         isAnimating = false
+        animateTimer = null
       }, TRANSITION_MS)
+    } else {
+      isAnimating = false
     }
 
     lastToggle = null
@@ -774,6 +796,9 @@ export function createD3EquityGraph(container: HTMLElement, data: EquityGraphDat
   fitView(false)
 
   function destroy() {
+    clearAnimateTimer()
+    isAnimating = false
+    interruptGraphTransitions()
     stopAllAntAnimations()
     svg.remove()
   }
