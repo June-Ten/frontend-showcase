@@ -62,7 +62,10 @@ export function usePdfViewer(containerRef: Ref<HTMLElement | undefined>, pdfUrl:
         ...PDFH5_ASSETS,
         backTop: false,
         scale: 1,
-        zoomEnable: true,
+        // Pinch/double-tap zoom CSS-transforms `.pdfViewer` only. Seals are
+        // teleported into `.viewerContainer`, so zoom moves the page under a
+        // stationary stamp and submit coords no longer match the visual placement.
+        zoomEnable: false,
       })
 
       viewer.on('complete', () => {
