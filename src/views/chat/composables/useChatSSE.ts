@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
 import type { ChatMessage, ChatStreamChunk } from '../types'
 
 const CHAT_API = '/api/chat'
@@ -20,6 +20,10 @@ function parseSSELine(line: string): ChatStreamChunk | null {
   }
 }
 
+function isAbortError(err: unknown) {
+  return err instanceof Error && err.name === 'AbortError'
+}
+
 export function useChatSSE() {
   const isStreaming = ref(false)
   const error = ref<string | null>(null)
@@ -30,7 +34,8 @@ export function useChatSSE() {
     onChunk: (text: string) => void,
   ): Promise<void> {
     abortController?.abort()
-    abortController = new AbortController()
+    const controller = new AbortController()
+    abortController = controller
 
     isStreaming.value = true
     error.value = null
@@ -45,7 +50,7 @@ export function useChatSSE() {
         body: JSON.stringify({
           messages: messages.map(({ role, content }) => ({ role, content })),
         }),
-        signal: abortController.signal,
+        signal: controller.signal,
       })
 
       if (!response.ok) {
@@ -61,8 +66,10 @@ export function useChatSSE() {
       let buffer = ''
 
       while (true) {
+        if (controller.signal.aborted) return
+
         const { done, value } = await reader.read()
-        if (done) break
+        if (done || controller.signal.aborted) break
 
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
@@ -82,14 +89,19 @@ export function useChatSSE() {
         }
       }
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
+      if (isAbortError(err)) {
         return
       }
       error.value = err instanceof Error ? err.message : '未知错误'
       throw err
     } finally {
-      isStreaming.value = false
-      abortController = null
+      // Only the in-flight request may clear streaming state. An aborted
+      // request's finally must not null a newer AbortController or flip
+      // isStreaming off while a replacement stream is still running.
+      if (abortController === controller) {
+        isStreaming.value = false
+        abortController = null
+      }
     }
   }
 
@@ -98,6 +110,10 @@ export function useChatSSE() {
     abortController = null
     isStreaming.value = false
   }
+
+  onBeforeUnmount(() => {
+    stopStreaming()
+  })
 
   return {
     isStreaming,
