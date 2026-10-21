@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Plugin } from 'vite'
+import { buildMockReply } from './mockChatStream'
 
 interface ChatMessagePayload {
   role: 'user' | 'assistant'
@@ -9,22 +10,6 @@ interface ChatMessagePayload {
 interface ChatPluginOptions {
   apiKey?: string
   model: string
-}
-
-function buildMockReply(messages: ChatMessagePayload[]) {
-  const lastUser = [...messages].reverse().find((item) => item.role === 'user')
-  const question = lastUser?.content ?? '你好'
-
-  return `你好！我收到了你的问题：「${question}」。
-
-当前未配置 DEEPSEEK_API_KEY，正在使用本地 Mock 流式回复。
-
-在项目根目录创建 .env.local 并写入：
-
-DEEPSEEK_API_KEY=sk-xxxxxxxx
-DEEPSEEK_MODEL=deepseek-v4-flash
-
-保存后重启 dev server，即可接入 DeepSeek Platform。`
 }
 
 function writeSSE(res: ServerResponse, data: string) {
