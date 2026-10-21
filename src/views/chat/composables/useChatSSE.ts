@@ -1,7 +1,8 @@
 import { ref } from 'vue'
+import { shouldUseMockChatStream, streamMockReply } from '../mock/mockChatStream'
 import type { ChatMessage, ChatStreamChunk } from '../types'
 
-const CHAT_API = '/api/chat'
+const CHAT_API = `${import.meta.env.BASE_URL}api/chat`
 
 function parseSSELine(line: string): ChatStreamChunk | null {
   const trimmed = line.trim()
@@ -35,18 +36,32 @@ export function useChatSSE() {
     isStreaming.value = true
     error.value = null
 
+    const payload = messages.map(({ role, content }) => ({ role, content }))
+
     try {
-      const response = await fetch(CHAT_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'text/event-stream',
-        },
-        body: JSON.stringify({
-          messages: messages.map(({ role, content }) => ({ role, content })),
-        }),
-        signal: abortController.signal,
-      })
+      let response: Response
+      try {
+        response = await fetch(CHAT_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+          },
+          body: JSON.stringify({ messages: payload }),
+          signal: abortController.signal,
+        })
+      } catch (err) {
+        if (shouldUseMockChatStream(null, err)) {
+          await streamMockReply(payload, onChunk, abortController.signal)
+          return
+        }
+        throw err
+      }
+
+      if (shouldUseMockChatStream(response)) {
+        await streamMockReply(payload, onChunk, abortController.signal)
+        return
+      }
 
       if (!response.ok) {
         throw new Error(`请求失败 (${response.status})`)

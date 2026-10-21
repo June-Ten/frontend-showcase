@@ -254,7 +254,7 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import ChatAvatar from './components/ChatAvatar.vue'
 import ChatMarkdown from './components/ChatMarkdown.vue'
 import { useChat } from './composables/useChat'
@@ -274,8 +274,13 @@ const {
   newChat,
   selectConversation,
   sendMessage,
+  stopStreaming,
   useSuggestion,
 } = useChat()
+
+onBeforeUnmount(() => {
+  stopStreaming()
+})
 
 watch(
   () => messages.value.length,
